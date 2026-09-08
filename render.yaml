@@ -1,0 +1,39 @@
+services:
+  - name: cdx-backend
+    type: web
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -e .
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      # Box CCG credentials — see backend/README.md. Placeholder strings are fine
+      # to get the service booting before Box access is unblocked; the app only
+      # fails at request time when it actually calls Box, not at startup.
+      - key: BOX_CLIENT_ID
+        sync: false
+      - key: BOX_CLIENT_SECRET
+        sync: false
+      - key: BOX_ENTERPRISE_ID
+        sync: false
+      - key: BOX_DASHBOARD_ROOT_FOLDER_ID
+        sync: false
+      - key: XRPL_NETWORK
+        value: testnet
+      - key: XRPL_TESTNET_WALLET_SEED
+        sync: false
+      # DATABASE_URL intentionally omitted — defaults to sqlite in app/config.py.
+      # Render's free-tier disk is ephemeral (wiped on redeploy), so this is fine
+      # for proving the deploy works but not durable; swap for a managed Postgres
+      # DATABASE_URL before real commit data needs to survive a redeploy.
+
+  - name: cdx-frontend
+    type: web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    routes:
+      - source: /*
+        destination: /index.html

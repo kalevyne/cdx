@@ -81,3 +81,21 @@ Chronological record of significant decisions for CDX, including what was consid
 **Why open**: Doesn't block Phase 1–2 work; needs to be settled before Phase 3 (XRPL anchoring) implementation starts.
 
 **Status**: Open (2026-08-04).
+
+---
+
+## 9. Scope compression and provisional defaults for the 2026-09-18 demo deadline
+
+**Decision**: A hard external deadline of 2026-09-18 was set with almost no code yet written. For that deadline only, presentability is weighted slightly above full operational completeness — this does not mean faking functionality; real Box integration, hashing, and XRPL testnet anchoring must actually work, just that visual polish and a working demo narrative get equal or greater priority than round out every feature.
+
+**Cut/deferred past the demo**: Phase 5 (webhooks, DAG visualization) is deferred past 2026-09-18. The demo's sponsor-facing view is a lightweight read-only summary page, not the full sponsor feature set envisioned for later. Full CAD visualization stays deferred per decision #5.
+
+**Provisional defaults to unblock #6/#7/#8 for the demo** (time-boxed choices, not final production decisions):
+
+* **XRPL transaction type (#8)**: use a `Payment` transaction with a minimal amount. Most legible to a non-technical audience ("this is a real transaction on the public ledger") and the simplest to implement under time pressure.
+* **Wallet custody (#6)**: a project-controlled XRPL Testnet wallet for the demo. Mainnet launch and its custody question remain open and are explicitly out of scope for 2026-09-18.
+* **Hosting (#7)**: managed platforms (e.g. Vercel for the frontend, Railway/Render for the backend, a managed Postgres such as Neon/Supabase) rather than self-managed AWS or campus infrastructure, to avoid spending scarce days on ops. AWS/Berkeley/CDA infrastructure stays the candidate for the long-term target after the demo.
+
+**Why**: With an 18-day runway and no existing code, every day spent deliberating is a day not spent building. These defaults were chosen for being cheap, reversible, and fast to stand up — not necessarily the eventual production choice. See `docs/TIMELINE.md` for the checkpoint schedule and budget this scope maps to.
+
+**Status**: Provisional, scoped to the 2026-09-18 deadline (2026-08-31). Long-term mainnet custody and hosting decisions remain open per #6/#7.
