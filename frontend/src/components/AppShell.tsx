@@ -1,4 +1,4 @@
-import { FolderTree, History, LogOut, Upload } from 'lucide-react'
+import { FolderTree, History, LayoutDashboard, LogOut, Upload } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router'
 
 import { useLogout } from '@/api/queries'
@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 
 // Add a page to the top navigation by adding it here.
 const NAV_ITEMS = [
+  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/browse', label: 'Browse', icon: FolderTree },
   { to: '/commit', label: 'Commit', icon: Upload },
   { to: '/history', label: 'History', icon: History },
@@ -30,6 +31,7 @@ export function AppShell({ user }: { user: SessionUser }) {
               <NavLink
                 key={to}
                 to={to}
+                end={to === '/'}
                 className={({ isActive }) =>
                   cn(
                     'flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
@@ -64,6 +66,9 @@ export function AppShell({ user }: { user: SessionUser }) {
       <footer className="border-t bg-background">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-4">
           <SponsorCredit />
+          <NavLink to="/sponsor" className="text-xs text-muted-foreground hover:text-foreground">
+            Public summary
+          </NavLink>
         </div>
       </footer>
     </div>

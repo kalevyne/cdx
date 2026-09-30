@@ -1,12 +1,16 @@
 import { FileText } from 'lucide-react'
 import { Link } from 'react-router'
 
+import { useSubsystemName } from '@/api/queries'
 import type { CdxCommit } from '@/api/types'
 import { AnchorStatusBadge } from '@/components/AnchorStatusBadge'
+import { Badge } from '@/components/ui/badge'
 import { formatRelative } from '@/lib/format'
 
 /** One line in a commit list; links to the commit's proof page. */
 export function CdxCommitRow({ cdxCommit }: { cdxCommit: CdxCommit }) {
+  const subsystemName = useSubsystemName(cdxCommit.subsystem)
+
   return (
     <li>
       <Link
@@ -17,6 +21,7 @@ export function CdxCommitRow({ cdxCommit }: { cdxCommit: CdxCommit }) {
           <div className="flex items-center gap-2">
             <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden />
             <span className="truncate text-sm font-medium">{cdxCommit.file_name}</span>
+            {subsystemName && <Badge variant="outline">{subsystemName}</Badge>}
           </div>
           <p className="truncate text-sm text-muted-foreground">{cdxCommit.message}</p>
         </div>

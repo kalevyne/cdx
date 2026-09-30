@@ -13,6 +13,12 @@ export type CdxCommit = Schemas['CdxCommitRead']
 export type AnchorStatus = Schemas['AnchorStatus']
 export type CdxCommitVerification = Schemas['CdxCommitVerification']
 export type VerificationCheck = Schemas['VerificationCheck']
+export type SubsystemStage = Schemas['SubsystemStage']
+export type SubsystemSummary = Schemas['SubsystemSummary']
+export type SubsystemUpdate = Schemas['SubsystemUpdate']
+export type SubsystemOverview = Schemas['SubsystemOverview']
+export type PublicSummary = Schemas['PublicSummary']
+export type PublicCdxCommit = Schemas['PublicCdxCommit']
 
 // Mirrors MAX_UPLOAD_BYTES in backend/app/services/cdx_commits.py (Box's
 // single-upload limit), so oversized files are caught before uploading.

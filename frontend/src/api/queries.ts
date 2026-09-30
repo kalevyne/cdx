@@ -9,7 +9,15 @@ import {
 } from '@tanstack/react-query'
 
 import { ApiError, apiFetch } from './client'
-import type { BoxFolderListing, CdxCommit, CdxCommitVerification, SessionUser } from './types'
+import type {
+  BoxFolderListing,
+  CdxCommit,
+  CdxCommitVerification,
+  PublicSummary,
+  SessionUser,
+  SubsystemSummary,
+  SubsystemUpdate,
+} from './types'
 
 // How often to re-check a commit whose XRPL anchoring is still in flight.
 const ANCHOR_POLL_MS = 3_000
@@ -20,6 +28,8 @@ export const queryKeys = {
   cdxCommits: (filters: CdxCommitFilters = {}) => ['cdx-commits', filters] as const,
   cdxCommit: (id: number) => ['cdx-commit', id] as const,
   verification: (id: number) => ['cdx-commit', id, 'verification'] as const,
+  subsystems: ['subsystems'] as const,
+  publicSummary: ['public-summary'] as const,
 }
 
 export function createQueryClient(): QueryClient {
@@ -153,7 +163,49 @@ export function useCreateCdxCommit() {
     onSuccess: (cdxCommit) => {
       queryClient.invalidateQueries({ queryKey: ['cdx-commits'] })
       queryClient.invalidateQueries({ queryKey: ['folder'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.subsystems })
+      queryClient.invalidateQueries({ queryKey: queryKeys.publicSummary })
       queryClient.setQueryData(queryKeys.cdxCommit(cdxCommit.id), cdxCommit)
     },
+  })
+}
+
+/** Every subsystem's dashboard card, in the backend's canonical order. */
+export function useSubsystems() {
+  return useQuery({
+    queryKey: queryKeys.subsystems,
+    queryFn: () => apiFetch<SubsystemSummary[]>('/api/subsystems'),
+  })
+}
+
+/** Display name for a subsystem slug ("battery" → "Battery"). */
+export function useSubsystemName(slug: string | null | undefined): string | null {
+  const { data } = useSubsystems()
+  return data?.find((s) => s.slug === slug)?.name ?? null
+}
+
+export function useUpdateSubsystem(slug: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (update: SubsystemUpdate) =>
+      apiFetch<SubsystemSummary>(`/api/subsystems/${encodeURIComponent(slug)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(update),
+      }),
+    onSuccess: (updated) => {
+      queryClient.setQueryData<SubsystemSummary[]>(queryKeys.subsystems, (cards) =>
+        cards?.map((card) => (card.slug === updated.slug ? updated : card)),
+      )
+      queryClient.invalidateQueries({ queryKey: queryKeys.publicSummary })
+    },
+  })
+}
+
+/** The public sponsor summary — works without logging in. */
+export function usePublicSummary() {
+  return useQuery({
+    queryKey: queryKeys.publicSummary,
+    queryFn: () => apiFetch<PublicSummary>('/api/public/summary'),
   })
 }

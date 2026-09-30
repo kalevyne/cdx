@@ -194,8 +194,9 @@ Postgres database. After the first deploy:
 - `app/services/cdx_commits.py` — creating/reading CDX commits.
 - `app/services/xrpl_client.py` — submit/read XRPL memo transactions.
 - `app/services/anchoring.py` — anchoring CDX commits + verification.
+- `app/services/dashboard.py` — subsystem cards and the public summary.
 - `app/routers/` — thin FastAPI routes over the services.
-- `app/models/` — the `cdx_commits` and `box_tokens` tables.
+- `app/models/` — the `cdx_commits`, `subsystem_metadata` and `box_tokens` tables.
 - `migrations/` — Alembic migrations for every table.
 - `scripts/` — one-off operator commands (Box authorization, folder layout).
 
@@ -244,3 +245,6 @@ the migrations disagree, so a forgotten migration shows up in CI.
 | GET    | `/api/cdx-commits/{id}`          | yes  | One CDX commit                            |
 | POST   | `/api/cdx-commits/{id}/anchor`   | yes  | Retry anchoring a pending/failed commit   |
 | GET    | `/api/cdx-commits/{id}/verification` | yes | Re-check hash against Box + ledger    |
+| GET    | `/api/subsystems`                | yes  | Dashboard cards: stage, lead, activity    |
+| PATCH  | `/api/subsystems/{slug}`         | yes  | Update lead / stage / note                |
+| GET    | `/api/public/summary`            | —    | Sponsor view: totals, stages, proofs      |

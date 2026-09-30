@@ -111,9 +111,20 @@ action · `[ ]` not started · `[!]` blocked (see "Blocked / fix later").
   with live anchoring status and XRPL explorer links.
 
 ### Checkpoint 5 — Dashboard + subsystem cards + sponsor view
-- [ ] Subsystem metadata + status aggregation.
-- [ ] Dashboard cards.
-- [ ] Sponsor summary view.
+- [x] Subsystem metadata + status aggregation: `subsystem_metadata` table
+  (owner, design stage concept → complete, note) + per-subsystem commit
+  counts/last activity/recent commits (`GET/PATCH /api/subsystems`).
+- [x] Dashboard (`/`): stat tiles, one card per subsystem with stage
+  progress, lead, note, recent commits and inline editing; recent activity.
+  History page gained subsystem filter chips; commit rows show a subsystem
+  badge.
+- [x] Sponsor view (`/sponsor`, no login, backed by `GET /api/public/summary`
+  which omits author names/messages/Box IDs): hero, CDA credit, stats,
+  subsystem stages, latest ledger proofs with explorer links, "how it works".
+- [~] **Needs a human**: "real (not lorem-ipsum) copy" — the copy is written
+  for CalSol but should be read by someone on the team; confirm the CDA
+  credit wording with Ripple/CDA. Responsive layout checked at 390px and
+  1280px with a mocked API only.
 
 ### Checkpoint 6 — Demo hardening
 - [ ] Demo seed data.
@@ -152,4 +163,4 @@ Each entry: what's blocked, why, and the concrete next step.
   scaffold, confirmed 11 backend tests + frontend build pass as the baseline.
   Checkpoint 1 code done (30 backend tests). Checkpoint 2 code done (42).
   Checkpoint 3 done (45 backend tests; frontend build + lint clean).
-  Checkpoint 4 done (60 backend tests).
+  Checkpoint 4 done (60 backend tests). Checkpoint 5 done (67).

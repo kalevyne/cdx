@@ -30,3 +30,11 @@ function Label({ className, ...props }: React.ComponentProps<"label">) {
 }
 
 export { Input, Label, Textarea }
+
+function NativeSelect({ className, ...props }: React.ComponentProps<"select">) {
+  return (
+    <select data-slot="native-select" className={cn(fieldClasses, "h-8", className)} {...props} />
+  )
+}
+
+export { NativeSelect }
