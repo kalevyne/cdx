@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -9,11 +9,16 @@ class ConfigurationError(Exception):
     """Raised when a request needs a setting that isn't configured."""
 
 
+# A required setting left blank (e.g. `.env` copied from `.env.example` and not
+# filled in) should stop startup, not surface later as a confusing Box error.
+_RequiredText = Field(min_length=1)
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    box_client_id: str
-    box_client_secret: str
+    box_client_id: str = _RequiredText
+    box_client_secret: str = _RequiredText
     # Redirect URI for the one-time backend authorization (scripts/box_oauth_setup.py).
     box_redirect_uri: str = "http://127.0.0.1:8000/api/box/oauth/callback"
     # Redirect URI for engineers logging in to the dashboard (routers/auth.py).
@@ -28,7 +33,7 @@ class Settings(BaseSettings):
 
     # Signs the session cookie. Generate with:
     #   python -c "import secrets; print(secrets.token_urlsafe(32))"
-    session_secret: str
+    session_secret: str = _RequiredText
     # True in any deployment served over HTTPS.
     session_cookie_secure: bool = False
     # Where the login callback sends the browser afterwards.
