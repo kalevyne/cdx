@@ -3,9 +3,10 @@
 Run this once, logged in as whichever Box account should own the connection
 (e.g. your Berkeley Box account, so CDX inherits its access to CalSol's
 folders). Opens the Box consent screen, catches the redirect on a local
-server, and exchanges the resulting code for tokens saved to
-`settings.box_token_storage_path`. Re-run it if that token file is ever lost
-or the authorization is revoked. See backend/README.md for the full flow.
+server, and exchanges the resulting code for tokens saved wherever
+BOX_TOKEN_STORAGE says (a local file, or the database a deployment uses — see
+app/services/box_token_storage.py). Re-run it if the token is ever lost or the
+authorization is revoked. See backend/README.md for the full flow.
 """
 
 from __future__ import annotations
@@ -14,20 +15,19 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs, urlparse
 
-from box_sdk_gen import BoxOAuth, FileTokenStorage, GetAuthorizeUrlOptions, OAuthConfig
+from box_sdk_gen import GetAuthorizeUrlOptions
 
 from app.config import get_settings
+from app.db import run_migrations
+from app.services.box_client import make_box_oauth
+from app.services.box_token_storage import make_backend_token_storage
 
 
 def main() -> None:
     settings = get_settings()
-    auth = BoxOAuth(
-        OAuthConfig(
-            client_id=settings.box_client_id,
-            client_secret=settings.box_client_secret,
-            token_storage=FileTokenStorage(settings.box_token_storage_path),
-        )
-    )
+    if settings.box_token_storage == "database":
+        run_migrations()
+    auth = make_box_oauth(settings, make_backend_token_storage(settings))
 
     redirect = urlparse(settings.box_redirect_uri)
     authorization_code: list[str] = []
@@ -64,7 +64,7 @@ def main() -> None:
         )
 
     auth.get_tokens_authorization_code_grant(authorization_code[0])
-    print(f"Authorized. Token saved to {settings.box_token_storage_path}.")
+    print(f"Authorized. Token saved ({settings.box_token_storage} storage).")
 
 
 if __name__ == "__main__":

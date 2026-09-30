@@ -1,3 +1,17 @@
+# Render Blueprint for the staging deploy (docs/DECISIONS.md #9: managed hosting
+# for the demo). Deploy via Render dashboard → New → Blueprint → this repo.
+#
+# Service URLs below assume Render grants the default names
+# (cdx-backend.onrender.com / cdx-frontend.onrender.com). If it appends a
+# suffix, update the three URLs marked "SERVICE URL" to match.
+
+databases:
+  # Check Render's current free-tier limits (free Postgres instances have
+  # historically expired after a fixed period); Neon/Supabase are drop-in
+  # alternatives — just set DATABASE_URL on cdx-backend instead.
+  - name: cdx-db
+    plan: free
+
 services:
   - name: cdx-backend
     type: web
@@ -5,40 +19,58 @@ services:
     plan: free
     rootDir: backend
     buildCommand: pip install -e .
+    # Database migrations run on startup (app/main.py), so no separate step.
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
-      # Box OAuth 2.0 credentials — see backend/README.md. Placeholder strings are
-      # fine to get the service booting; the app only fails at request time when
-      # it actually calls Box, not at startup.
+      # Box OAuth 2.0 credentials — see backend/README.md.
       - key: BOX_CLIENT_ID
         sync: false
       - key: BOX_CLIENT_SECRET
         sync: false
-      # Must match a Redirect URI on the app in Box's Developer Console — set this
-      # to this service's public Render URL + /api/box/oauth/callback once known
-      # (a redeploy is needed either way to pick up a change here).
-      - key: BOX_REDIRECT_URI
-        sync: false
       - key: BOX_DASHBOARD_ROOT_FOLDER_ID
         sync: false
+      # Engineers log in through the frontend's /api proxy (routes below), so the
+      # session cookie belongs to the frontend's domain. Also add this URL as a
+      # Redirect URI on the Box app.
+      - key: BOX_LOGIN_REDIRECT_URI
+        value: https://cdx-frontend.onrender.com/api/auth/callback # SERVICE URL
+      - key: FRONTEND_URL
+        value: https://cdx-frontend.onrender.com # SERVICE URL
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
+      # Render's disk is wiped on every deploy, so the backend's own Box token
+      # lives in Postgres. Authorize once from a laptop with this service's
+      # DATABASE_URL (the database's *external* URL) and
+      # BOX_TOKEN_STORAGE=database: `python -m scripts.box_oauth_setup`.
+      - key: BOX_TOKEN_STORAGE
+        value: database
+      - key: DATABASE_URL
+        fromDatabase:
+          name: cdx-db
+          property: connectionString
       - key: XRPL_NETWORK
         value: testnet
       - key: XRPL_TESTNET_WALLET_SEED
         sync: false
-      # DATABASE_URL and BOX_TOKEN_STORAGE_PATH intentionally omitted — both
-      # default to files in app/config.py, and Render's free-tier disk is
-      # ephemeral (wiped on redeploy). Fine for proving the deploy works; the
-      # OAuth authorization (run via backend/scripts/box_oauth_setup.py against
-      # this service's own URL) and real commit data both need a persistent
-      # disk or external store before this is durable.
+      # A second funded Testnet address; see backend/.env.example.
+      - key: XRPL_ANCHOR_DESTINATION
+        sync: false
 
   - name: cdx-frontend
     type: web
     runtime: static
     rootDir: frontend
-    buildCommand: npm install && npm run build
+    buildCommand: npm ci && npm run build
     staticPublishPath: ./dist
     routes:
-      - source: /*
+      # Same-origin API: the browser only ever talks to the frontend's domain,
+      # so the login cookie is first-party and no CORS setup is needed.
+      - type: rewrite
+        source: /api/*
+        destination: https://cdx-backend.onrender.com/api/* # SERVICE URL
+      - type: rewrite
+        source: /*
         destination: /index.html

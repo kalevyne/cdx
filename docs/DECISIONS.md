@@ -112,4 +112,28 @@ Chronological record of significant decisions for CDX, including what was consid
 
 **Trade-off accepted**: The backend no longer has an independent service-account identity — it acts as whatever specific Box account (intended: the maintainer's own Berkeley account) authorized it, inheriting that account's own folder access instead of needing an explicit collaborator invite. This is weaker than a service account: it's tied to one person's continued access, not a durable team-owned identity. Revisit once Box access stops being a blocker (retry Berkeley IT, or pursue Box's nonprofit donation program via TechSoup if CalSol or a fiscal sponsor qualifies as a 501(c)(3)) — don't let this stopgap become permanent by default.
 
-**Status**: Active (2026-09-28). Superseding decision — the CCG approach described in `docs/ARCHITECTURE.md` is no longer current; that doc should be updated to match when next touched.
+**Status**: Active (2026-09-28). Superseding decision — `docs/ARCHITECTURE.md` was updated to match on 2026-09-30.
+
+---
+
+## 11. Engineer login identifies the engineer; Box I/O stays on the backend's connection
+
+**Decision**: Engineers log in with Box OAuth 2.0 using the same Box app as the backend (`backend/app/services/box_login.py`). At login, CDX reads who they are and checks that *their own* Box account can see the Dashboard root folder — if not, login is refused. Their Box token is then discarded; the session cookie only holds their Box user ID, name, and login. All Box reads/writes afterwards go through the backend's own connection (decision #10).
+
+**Considered**: Keeping each engineer's Box token server-side and making every Box call as them, so Box's per-folder permissions apply to each request.
+
+**Why not (yet)**: It needs server-side token storage per user, refresh handling, and re-login flows — days of work the deadline didn't have — and CalSol's dashboard tree is shared by all subteams anyway. The root-folder check keeps access Box-native (whoever CalSol shares the folder with can log in; removing someone in Box locks them out at their next login) without per-request delegation.
+
+**Trade-off accepted**: Within the dashboard tree, a logged-in engineer can see anything the backend's account can, not just what their own Box account can. Revisit if subteams ever need folders hidden from each other.
+
+**Status**: Active (2026-09-30).
+
+---
+
+## 12. Anchor transaction details: 1-drop Payment to a second project account, text memos
+
+**Decision**: Implementing #9's provisional `Payment` choice, each CDX commit is anchored by a 1-drop Testnet `Payment` from the project wallet to a second project-controlled Testnet account (`XRPL_ANCHOR_DESTINATION`), carrying `cdx/commit-id`, `cdx/sha256` and (if present) `cdx/design-review-sha256` memos as hex-encoded UTF-8 text. Anchoring runs in a background task after the commit is saved; the network is stored per commit so explorer links and verification stay correct if the network ever changes. `XRPL_NETWORK=mainnet` is refused in code until #6 (custody) is decided.
+
+**Why**: XRPL rejects a `Payment` to the sending account itself (`temREDUNDANT`), so a Payment needs some other destination; a second faucet-funded account costs nothing on Testnet. Text memos (rather than raw 32-byte hash data) make the hash readable as-is on public explorers, which is the demo's "here's the hash on a public ledger" moment. `AccountSet` (#8's other candidate) would avoid the destination entirely and remains the simplest switch if the second account becomes a nuisance.
+
+**Status**: Active for the Testnet demo (2026-09-30). Revisit alongside #6 before mainnet.
