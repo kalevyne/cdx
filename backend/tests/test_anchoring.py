@@ -114,3 +114,12 @@ def test_verification_before_anchoring_is_unavailable(client, box, fake_xrpl):
         "detail": "Not anchored yet",
     }
     assert result["verified"] is False
+
+
+def test_status_reports_whether_anchoring_is_enabled(client, fake_xrpl):
+    assert client.get("/api/status").json() == {
+        "anchoring_enabled": True,
+        "xrpl_network": "testnet",
+    }
+    fake_xrpl.is_configured = False
+    assert client.get("/api/status").json()["anchoring_enabled"] is False

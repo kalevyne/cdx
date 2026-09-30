@@ -85,3 +85,8 @@ def test_unknown_cdx_commit_returns_404(client):
 
 def test_cdx_commits_require_login(anonymous_client):
     assert anonymous_client.get("/api/cdx-commits").status_code == 401
+
+
+def test_list_limit_is_validated(client):
+    assert client.get("/api/cdx-commits", params={"limit": 0}).status_code == 422
+    assert client.get("/api/cdx-commits", params={"limit": 201}).status_code == 422

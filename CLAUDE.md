@@ -6,15 +6,18 @@ Context and conventions for AI-assisted development on CDX.
 
 CDX is an engineering dashboard for CalSol (UC Berkeley's solar vehicle team) layered on top of their existing Box Enterprise storage. Engineers commit files through the dashboard UI; every commit's SHA-256 hash is anchored to XRPL for a permanent, tamper-evident record. See the root `README.md` for the full pitch and `docs/ARCHITECTURE.md` / `docs/PROJECT-SUMMARY.md` / `docs/DECISIONS.md` for depth.
 
-No application code exists yet — this file documents intended conventions so Phase 1 starts consistent, not conventions mined from an existing codebase. Update it as real patterns emerge.
+Start with `docs/HANDOFF.md`: it tracks progress against `docs/TIMELINE.md`, what still needs a live check, and known blockers. Keep it current in the same commit as the work it describes.
 
-## Repo layout (intended)
+## Repo layout
 
 ```
-backend/    FastAPI app — Box API client, hashing pipeline, XRPL anchoring, DB models
-frontend/   React app — folder tree, dashboard cards, commit UI
-docs/       Architecture, decisions, project summary
+backend/    FastAPI app — Box client, login, CDX commits, XRPL anchoring, dashboard
+frontend/   React app — dashboard, folder browser, commit form, history, sponsor page
+docs/       Architecture, decisions, timeline, handoff, demo runbook
+render.yaml Staging deploy (Render Blueprint)
 ```
+
+`backend/README.md` and `frontend/README.md` map each directory; read them before adding a module.
 
 ## Backend (Python / FastAPI)
 
@@ -25,11 +28,18 @@ docs/       Architecture, decisions, project summary
 * Box API and XRPL calls are backend-only. The frontend never talks to Box or XRPL directly — it goes through the FastAPI service, which holds the credentials.
 * Secrets (Box service account credentials, XRPL wallet seed) come from environment variables / a secrets manager — never hardcoded, never committed. If you add a new required secret, document it in `backend/.env.example`.
 * XRPL network is environment-driven (`XRPL_NETWORK=testnet|mainnet`), not hardcoded — development and CI must default to testnet.
+* Routes stay thin; logic lives in `app/services/`. Services raise their own exceptions, and `app/errors.py` maps them to HTTP status codes — add new exception types there instead of try/except in routes.
+* Every Box lookup by ID goes through `BoxService`, which rejects anything outside `BOX_DASHBOARD_ROOT_FOLDER_ID` (decision #11). Don't call box-sdk-gen directly from elsewhere.
+* The list of subteams and the Box folder layout live only in `app/subsystems.py`.
+* Schema changes need an Alembic migration (`alembic revision --autogenerate`); `tests/test_migrations.py` fails otherwise. Migrations run on startup.
+* Tests fake Box and XRPL (`tests/conftest.py`: `box`, `fake_xrpl`, `client`); they never touch the network.
 
 ## Frontend (React)
 
 * TypeScript, functional components, hooks. No class components.
-* Keep Box/XRPL data-fetching in a thin API client layer (e.g. `frontend/src/api/`) rather than scattering `fetch` calls through components.
+* All HTTP goes through `frontend/src/api/`: components use the React Query hooks in `queries.ts`, never `fetch` directly.
+* API types are generated from the backend's OpenAPI schema — never hand-write a type that mirrors a backend schema. After changing backend schemas/routes: `python -m scripts.export_openapi` (backend) then `npm run gen:api` (frontend); a backend test fails if the snapshot is stale.
+* Shared UI states (empty/error/loading) come from `components/StateViews.tsx`; primitives live in `components/ui/`.
 * CAD visualization is a nice-to-have deferred past v1 (see `docs/DECISIONS.md`) — don't build it out ahead of the folder tree / commit UI / dashboard cards that are actually in scope.
 
 ## Scope discipline

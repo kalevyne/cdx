@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, Form, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from app.auth import require_user
@@ -44,9 +44,11 @@ def create_cdx_commit(
 
 @router.get("", response_model=list[CdxCommitRead])
 def list_cdx_commits(
-    subsystem: str | None = None, limit: int = 50, db: Session = Depends(get_session)
+    subsystem: str | None = None,
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_session),
 ) -> list[CdxCommitRead]:
-    return cdx_commits.list_cdx_commits(db, subsystem=subsystem, limit=min(limit, 200))
+    return cdx_commits.list_cdx_commits(db, subsystem=subsystem, limit=limit)
 
 
 @router.get("/{cdx_commit_id}", response_model=CdxCommitRead)

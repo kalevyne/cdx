@@ -83,3 +83,18 @@ def test_download_specific_version(client, box_service_mock):
 
     assert response.content == b"old"
     box_service_mock.download_file.assert_called_once_with("9", "v1")
+
+
+def test_download_non_ascii_filename(client, box_service_mock):
+    box_service_mock.download_file.return_value = (
+        BoxFileMetadata(id="9", name='设计 "v2".pdf', size=5, parent_id="42"),
+        b"hello",
+    )
+
+    response = client.get("/api/files/9/content")
+
+    assert response.status_code == 200
+    assert (
+        "filename*=UTF-8''%E8%AE%BE%E8%AE%A1%20%22v2%22.pdf"
+        in (response.headers["content-disposition"])
+    )

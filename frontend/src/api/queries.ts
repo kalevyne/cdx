@@ -14,6 +14,7 @@ import type {
   CdxCommit,
   CdxCommitVerification,
   PublicSummary,
+  ServerStatus,
   SessionUser,
   SubsystemSummary,
   SubsystemUpdate,
@@ -30,6 +31,7 @@ export const queryKeys = {
   verification: (id: number) => ['cdx-commit', id, 'verification'] as const,
   subsystems: ['subsystems'] as const,
   publicSummary: ['public-summary'] as const,
+  serverStatus: ['server-status'] as const,
 }
 
 export function createQueryClient(): QueryClient {
@@ -97,6 +99,7 @@ export interface CdxCommitFilters {
 }
 
 export function useCdxCommits(filters: CdxCommitFilters = {}) {
+  const pollInterval = useAnchorPolling()
   return useQuery({
     queryKey: queryKeys.cdxCommits(filters),
     queryFn: () => {
@@ -106,17 +109,33 @@ export function useCdxCommits(filters: CdxCommitFilters = {}) {
       return apiFetch<CdxCommit[]>(`/api/cdx-commits?${params}`)
     },
     refetchInterval: (query) =>
-      query.state.data?.some((c) => c.anchor_status === 'pending') ? ANCHOR_POLL_MS : false,
+      pollInterval(Boolean(query.state.data?.some((c) => c.anchor_status === 'pending'))),
   })
+}
+
+/** Whether this server can anchor to XRPL (public, cached for the session). */
+export function useServerStatus() {
+  return useQuery({
+    queryKey: queryKeys.serverStatus,
+    queryFn: () => apiFetch<ServerStatus>('/api/status'),
+    staleTime: Infinity,
+  })
+}
+
+/** Poll interval for queries showing pending commits: poll only while
+ * something is pending and the server can actually anchor it. */
+function useAnchorPolling() {
+  const anchoringEnabled = useServerStatus().data?.anchoring_enabled !== false
+  return (anyPending: boolean) => (anyPending && anchoringEnabled ? ANCHOR_POLL_MS : false)
 }
 
 /** One CDX commit; polls while its anchoring is pending so the UI updates live. */
 export function useCdxCommit(id: number) {
+  const pollInterval = useAnchorPolling()
   return useQuery({
     queryKey: queryKeys.cdxCommit(id),
     queryFn: () => apiFetch<CdxCommit>(`/api/cdx-commits/${id}`),
-    refetchInterval: (query) =>
-      query.state.data?.anchor_status === 'pending' ? ANCHOR_POLL_MS : false,
+    refetchInterval: (query) => pollInterval(query.state.data?.anchor_status === 'pending'),
   })
 }
 

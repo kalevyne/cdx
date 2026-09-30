@@ -19,6 +19,7 @@ export type SubsystemUpdate = Schemas['SubsystemUpdate']
 export type SubsystemOverview = Schemas['SubsystemOverview']
 export type PublicSummary = Schemas['PublicSummary']
 export type PublicCdxCommit = Schemas['PublicCdxCommit']
+export type ServerStatus = Schemas['ServerStatus']
 
 // Mirrors MAX_UPLOAD_BYTES in backend/app/services/cdx_commits.py (Box's
 // single-upload limit), so oversized files are caught before uploading.

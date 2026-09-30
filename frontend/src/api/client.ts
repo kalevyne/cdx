@@ -19,9 +19,31 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   return (response.status === 204 ? undefined : await response.json()) as T
 }
 
-/** Full-page navigation to the backend's Box login redirect. */
+const RETURN_TO_KEY = 'cdx:return-to'
+
+/** Full-page navigation to the backend's Box login redirect. The current page
+ * is remembered so a shared link (e.g. a commit's proof) survives logging in. */
 export function startLogin(): void {
+  const params = new URLSearchParams(window.location.search)
+  params.delete('login_error') // don't carry a previous failure back after success
+  const query = params.toString()
+  try {
+    sessionStorage.setItem(RETURN_TO_KEY, window.location.pathname + (query ? `?${query}` : ''))
+  } catch {
+    // Storage unavailable (private mode): the user just lands on the dashboard.
+  }
   window.location.assign('/api/auth/login')
+}
+
+/** The page to return to after login, if one was saved; clears it. */
+export function takeLoginReturnPath(): string | null {
+  try {
+    const path = sessionStorage.getItem(RETURN_TO_KEY)
+    sessionStorage.removeItem(RETURN_TO_KEY)
+    return path
+  } catch {
+    return null
+  }
 }
 
 /** Download URL for a Box file — a specific version when `versionId` is given. */

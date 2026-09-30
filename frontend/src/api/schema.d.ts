@@ -235,6 +235,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Server Status
+         * @description Public: lets the UI say "not configured" instead of "anchoring…" forever,
+         *     and gives a quick pre-demo check that XRPL is set up.
+         */
+        get: operations["server_status_api_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/subsystems": {
         parameters: {
             query?: never;
@@ -276,7 +297,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Health */
+        /**
+         * Health
+         * @description Liveness check for the host (render.yaml healthCheckPath).
+         */
         get: operations["health_health_get"];
         put?: never;
         post?: never;
@@ -473,6 +497,13 @@ export interface components {
             subsystems: components["schemas"]["SubsystemOverview"][];
             /** Total Commits */
             total_commits: number;
+        };
+        /** ServerStatus */
+        ServerStatus: {
+            /** Anchoring Enabled */
+            anchoring_enabled: boolean;
+            /** Xrpl Network */
+            xrpl_network: string;
         };
         /**
          * SessionUser
@@ -955,6 +986,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PublicSummary"];
+                };
+            };
+        };
+    };
+    server_status_api_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServerStatus"];
                 };
             };
         };

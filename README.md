@@ -27,7 +27,7 @@ The XRPL layer exists for permanence and independence from CalSol's own infrastr
 * **Storage & identity**: Box Enterprise — engineers authenticate with their existing Box/university account.
 * **Ledger**: XRPL — commit hashes anchored via a `Memo` field. Testnet during development, mainnet at launch.
 * **Database**: SQLite (dev) / Postgres (prod) — caches commit history and XRPL transaction references so the dashboard isn't querying XRPL on every page load.
-* **Hosting**: not yet decided — AWS (existing CalSol familiarity) and Berkeley-campus/CDA-provided infrastructure are both on the table.
+* **Hosting**: Render for the demo (`render.yaml`, decision #9); the long-term target (AWS or Berkeley/CDA infrastructure) is still open.
 
 ## What's explicitly out of scope (v1)
 
@@ -62,14 +62,18 @@ Phases 1–2 are deliberately sequenced before any XRPL work so team adoption ca
 
 ## Status
 
-Architecture finalized (Rev. 2, 06/29/2026) — single Box-native access control model; the earlier dual-paradigm Web3 experiment was abandoned. Stack decided (React + FastAPI + Box + XRPL). Next concrete step: designing the Box folder structure the dashboard will own (see `docs/PROJECT-SUMMARY.md`). No Box API access or XRPL wallet set up yet — that's the first unblock for Phase 1.
+Phases 1–4 are built, plus the lightweight sponsor view from Phase 5 (see `docs/DECISIONS.md` #9 for what was cut for the 2026-09-18 demo): Box OAuth login, a folder browser scoped to the Dashboard root, CDX commits (upload → Box → SHA-256 → database), background XRPL Testnet anchoring with a verification check, commit history, subsystem dashboard cards, and a public summary page. Box and XRPL behaviour is covered by tests against fakes; the live end-to-end checks still to run are listed in `docs/HANDOFF.md`.
 
 ## Docs
 
 * `CLAUDE.md` — context and conventions for AI-assisted development in this repo
+* `docs/HANDOFF.md` — checkpoint progress, open blockers, and what to check live next
 * `docs/ARCHITECTURE.md` — technical architecture
 * `docs/PROJECT-SUMMARY.md` — one-page project summary
 * `docs/DECISIONS.md` — architecture decision log
+* `docs/TIMELINE.md` — the checkpoint schedule for the demo deadline
+* `docs/DEMO.md` — pre-demo checklist and the demo script
+* `backend/README.md`, `frontend/README.md` — setup, layout, and commands
 
 ## Sponsor
 

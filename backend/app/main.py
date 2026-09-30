@@ -8,7 +8,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.config import get_settings
 from app.db import run_migrations
 from app.errors import register_error_handlers
-from app.routers import auth, cdx_commits, dashboard, files
+from app.routers import auth, cdx_commits, dashboard, files, status
 from app.services.anchoring import anchor_pending_cdx_commits
 from app.services.xrpl_client import get_xrpl_client
 
@@ -37,8 +37,4 @@ app.include_router(auth.router, prefix="/api", tags=["auth"])
 app.include_router(files.router, prefix="/api", tags=["box"])
 app.include_router(cdx_commits.router, prefix="/api", tags=["cdx-commits"])
 app.include_router(dashboard.router, prefix="/api", tags=["dashboard"])
-
-
-@app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+app.include_router(status.router, tags=["status"])

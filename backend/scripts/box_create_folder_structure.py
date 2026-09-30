@@ -14,7 +14,7 @@ import argparse
 
 from app.config import get_settings
 from app.services.box_client import get_box_service
-from app.subsystems import SUBSYSTEM_SUBFOLDERS, SUBSYSTEMS
+from app.services.folder_layout import ensure_vehicle_layout
 
 
 def main() -> None:
@@ -22,16 +22,14 @@ def main() -> None:
     parser.add_argument("vehicle", help="Vehicle folder name, e.g. the car's name or year")
     args = parser.parse_args()
 
-    box = get_box_service()
     root_id = get_settings().require_dashboard_root_folder_id()
+    layout = ensure_vehicle_layout(get_box_service(), root_id, args.vehicle)
 
-    vehicle_id = box.ensure_folder(root_id, args.vehicle)
-    print(f"{args.vehicle}/  ({vehicle_id})")
-    for subsystem in SUBSYSTEMS:
-        subsystem_id = box.ensure_folder(vehicle_id, subsystem.name)
-        print(f"  {subsystem.name}/  ({subsystem_id})")
-        for subfolder in SUBSYSTEM_SUBFOLDERS:
-            print(f"    {subfolder}/  ({box.ensure_folder(subsystem_id, subfolder)})")
+    print(f"{args.vehicle}/")
+    for folders in layout.values():
+        print(f"  {folders.subsystem.name}/  ({folders.folder_id})")
+        print(f"    CAD/  ({folders.cad_folder_id})")
+        print(f"    Design Reviews/  ({folders.design_reviews_folder_id})")
 
 
 if __name__ == "__main__":

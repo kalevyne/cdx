@@ -158,6 +158,18 @@ anchored automatically on the next startup.
 from Box and re-reads the memo from the ledger, and reports whether both
 still match the recorded hash.
 
+## 8. Demo data (optional)
+
+```bash
+python -m scripts.seed_demo_data "<Vehicle name>" [--author "Name"] [--set-stages]
+```
+
+Commits one or two small sample files per subsystem through the real pipeline
+(Box upload, SHA-256, XRPL anchoring). Nothing is backdated; each file's first
+line marks it as sample data. See `docs/DEMO.md` for when to run it.
+`GET /api/status` shows whether anchoring is configured — check it before a
+demo.
+
 ## Deploying to staging (Render)
 
 `render.yaml` at the repo root is a Render Blueprint for both services plus a
@@ -198,7 +210,9 @@ Postgres database. After the first deploy:
 - `app/routers/` — thin FastAPI routes over the services.
 - `app/models/` — the `cdx_commits`, `subsystem_metadata` and `box_tokens` tables.
 - `migrations/` — Alembic migrations for every table.
-- `scripts/` — one-off operator commands (Box authorization, folder layout).
+- `app/services/folder_layout.py` — creates the per-vehicle Box folder layout.
+- `scripts/` — operator commands: Box authorization, folder layout, demo
+  data, and the OpenAPI export the frontend's types are generated from.
 
 Uploads only happen through CDX commits: there's deliberately no raw upload
 route, since a file written to the dashboard tree without a commit would have
@@ -232,6 +246,7 @@ the migrations disagree, so a forgotten migration shows up in CI.
 | Method | Path                             | Auth | Purpose                                   |
 |--------|----------------------------------|------|--------------------------------------------|
 | GET    | `/health`                        | —    | Liveness check                            |
+| GET    | `/api/status`                    | —    | Is XRPL anchoring configured? Network?    |
 | GET    | `/api/auth/login`                | —    | Redirect to Box login                     |
 | GET    | `/api/auth/callback`             | —    | Box redirects here; sets session cookie   |
 | GET    | `/api/auth/me`                   | yes  | The logged-in engineer                    |

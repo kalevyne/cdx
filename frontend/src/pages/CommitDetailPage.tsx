@@ -17,7 +17,7 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router'
 
 import { fileDownloadUrl } from '@/api/client'
-import { useCdxCommit, useRetryAnchoring, useVerification } from '@/api/queries'
+import { useCdxCommit, useRetryAnchoring, useServerStatus, useVerification } from '@/api/queries'
 import type { CdxCommit, VerificationCheck } from '@/api/types'
 import { AnchorStatusBadge } from '@/components/AnchorStatusBadge'
 import { PageHeader } from '@/components/AppShell'
@@ -137,6 +137,7 @@ function ProofCard({ cdxCommit }: { cdxCommit: CdxCommit }) {
 }
 
 function LedgerStepBody({ cdxCommit }: { cdxCommit: CdxCommit }) {
+  const anchoringEnabled = useServerStatus().data?.anchoring_enabled !== false
   if (cdxCommit.anchor_status === 'anchored') {
     return (
       <>
@@ -148,7 +149,13 @@ function LedgerStepBody({ cdxCommit }: { cdxCommit: CdxCommit }) {
     )
   }
   if (cdxCommit.anchor_status === 'pending') {
-    return <span className="text-sm text-muted-foreground">Waiting for ledger validation…</span>
+    return (
+      <span className="text-sm text-muted-foreground">
+        {anchoringEnabled
+          ? 'Waiting for ledger validation…'
+          : "XRPL anchoring isn't configured on this server yet. This commit will be anchored automatically once it is."}
+      </span>
+    )
   }
   return <span className="text-sm text-muted-foreground">Not anchored</span>
 }

@@ -2,6 +2,8 @@
 through CDX commits (routers/cdx_commits.py) so every upload is hashed and
 recorded. Errors from BoxService are mapped to HTTP responses in app/errors.py."""
 
+from urllib.parse import quote
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import Response
 
@@ -36,9 +38,16 @@ def download_file(
 ) -> Response:
     """The file's current content, or a specific version (e.g. the one a CDX commit recorded)."""
     metadata, content = box.download_file(file_id, version_id)
-    safe_name = metadata.name.replace('"', "")
     return Response(
         content=content,
         media_type="application/octet-stream",
-        headers={"Content-Disposition": f'attachment; filename="{safe_name}"'},
+        headers={"Content-Disposition": _attachment_header(metadata.name)},
     )
+
+
+def _attachment_header(filename: str) -> str:
+    """RFC 6266 Content-Disposition: an ASCII fallback name for old clients plus
+    the exact UTF-8 name (headers can't carry raw non-Latin-1 characters)."""
+    ascii_name = filename.encode("ascii", "ignore").decode().replace('"', "").replace("\\", "")
+    fallback = ascii_name.strip() or "download"
+    return f"attachment; filename=\"{fallback}\"; filename*=UTF-8''{quote(filename)}"

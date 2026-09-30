@@ -112,7 +112,7 @@ Chronological record of significant decisions for CDX, including what was consid
 
 **Trade-off accepted**: The backend no longer has an independent service-account identity — it acts as whatever specific Box account (intended: the maintainer's own Berkeley account) authorized it, inheriting that account's own folder access instead of needing an explicit collaborator invite. This is weaker than a service account: it's tied to one person's continued access, not a durable team-owned identity. Revisit once Box access stops being a blocker (retry Berkeley IT, or pursue Box's nonprofit donation program via TechSoup if CalSol or a fiscal sponsor qualifies as a 501(c)(3)) — don't let this stopgap become permanent by default.
 
-**Status**: Active (2026-09-28). Superseding decision — the CCG approach described in `docs/ARCHITECTURE.md` is no longer current; that doc should be updated to match when next touched.
+**Status**: Active (2026-09-28). Superseding decision — `docs/ARCHITECTURE.md` was updated to match on 2026-09-30.
 
 ---
 

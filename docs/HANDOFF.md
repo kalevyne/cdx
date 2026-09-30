@@ -32,6 +32,25 @@ pytest && ruff check . && ruff format --check .
 cd frontend && npm ci && npm run build && npm run lint
 ```
 
+## Next steps for a human, in order
+
+All code for Checkpoints 1–6 is written and tested against fakes. What's
+left needs real accounts, credentials, or people:
+
+1. **Local live run** (backend/README.md steps 1–7): add the second Box
+   Redirect URI (`/api/auth/callback`), set `SESSION_SECRET`, delete any old
+   `backend/cdx.db`, create a second faucet account for
+   `XRPL_ANCHOR_DESTINATION`, then log in, create the folder layout, commit a
+   file, and confirm the anchor on testnet.xrpl.org and "Verify now" goes
+   green. This exercises every `[~]` item below in one sitting.
+2. **Staging** (backend/README.md "Deploying to staging"): Render Blueprint,
+   Box redirect URI for the deployed frontend, `box_oauth_setup` into the
+   deployed DB. Check that the `/api/*` rewrite proxies (blocker 5 if not).
+3. **Checkpoint 3's check**: a teammate who hasn't seen the code logs in,
+   browses, and commits on staging.
+4. **Demo prep** (docs/DEMO.md): seed data days ahead, subteam leads fill in
+   their cards, backup video, custom domain, rehearsal.
+
 ## Environment limits hit (cloud agent sandbox)
 
 The sandbox's network policy denies `api.box.com`, `s.altnet.rippletest.net`
@@ -127,8 +146,23 @@ action · `[ ]` not started · `[!]` blocked (see "Blocked / fix later").
   1280px with a mocked API only.
 
 ### Checkpoint 6 — Demo hardening
-- [ ] Demo seed data.
-- [ ] Bug bash.
+- [~] Demo seed data: `scripts/seed_demo_data.py` commits sample files for
+  every subsystem through the real pipeline (Box → SHA-256 → XRPL), marks
+  each file as sample data, never backdates, never invents leads
+  (`--set-stages` fills unset stages only). Tested with fakes; **needs a live
+  run** a few days before the demo (docs/DEMO.md).
+- [x] Bug bash (fixes, each with a test where it's backend):
+  - downloads of non-ASCII file names crashed with a 500 (Content-Disposition
+    is now RFC 6266 with a UTF-8 `filename*`);
+  - `?limit=` on the history API wasn't validated (0/negative meant "no
+    limit" on SQLite);
+  - "Anchoring…" spun forever when XRPL wasn't configured — new public
+    `GET /api/status`; the UI shows "Not anchored yet" and stops polling;
+  - deep links (e.g. a shared proof page) were lost across the Box login
+    round trip — the page is now restored after login.
+  - Full commit flow (validation → multipart upload → success card → badge
+    flips to Anchored) exercised in headless Chromium against a mocked API.
+- [x] Demo script + pre-demo checklist + fallbacks: `docs/DEMO.md`.
 - [!] Backup demo video, custom domain, live rehearsal — human-only.
 
 ## Blocked / fix later
@@ -156,6 +190,18 @@ Each entry: what's blocked, why, and the concrete next step.
 7. **Files over 50 MB** are rejected (Box's single-upload limit). CAD files
    can exceed that; supporting them means Box's chunked upload API in
    `BoxService.upload_file`.
+8. **Direct edits in Box aren't prevented or recorded** — the original plan
+   relied on a service account owning the tree, which decision #10 dropped.
+   Committed versions stay verifiable (each CDX commit pins a Box version),
+   but out-of-band edits are invisible to CDX. Next step: Box webhooks
+   (Phase 5), or restricting the tree's collaborators in Box.
+9. **Render free tier sleeps** after ~15 idle minutes (30–60 s cold start);
+   the background anchoring task also dies with the instance, though pending
+   commits are re-anchored on the next startup. Warm it before demos
+   (docs/DEMO.md) or use a paid instance.
+10. **Engineer permissions inside the dashboard tree** are the backend
+    account's, not each engineer's (decision #11 trade-off). Revisit if
+    subteams need private folders.
 
 ## Session log
 
@@ -164,3 +210,5 @@ Each entry: what's blocked, why, and the concrete next step.
   Checkpoint 1 code done (30 backend tests). Checkpoint 2 code done (42).
   Checkpoint 3 done (45 backend tests; frontend build + lint clean).
   Checkpoint 4 done (60 backend tests). Checkpoint 5 done (67).
+  Checkpoint 6 done (73 backend tests; frontend build + lint clean). Top-level
+  docs (README, CLAUDE.md, ARCHITECTURE.md) refreshed to match the code.

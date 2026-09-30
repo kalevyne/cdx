@@ -16,6 +16,7 @@ from box_sdk_gen import (
 )
 
 from app.config import Settings, get_settings
+from app.schemas.auth import SessionUser
 from app.schemas.box import BoxFileMetadata, BoxFolder, BoxFolderListing, BoxFolderRef, BoxItem
 from app.services.box_token_storage import make_backend_token_storage
 
@@ -84,6 +85,11 @@ class BoxService:
         auth = make_box_oauth(settings, make_backend_token_storage(settings))
         self._client = BoxClient(auth=auth)
         self._settings = settings
+
+    def get_current_user(self) -> SessionUser:
+        """The Box account the backend is connected as (decision #10)."""
+        me = _call_box(lambda: self._client.users.get_user_me(fields=["id", "name", "login"]), "me")
+        return SessionUser(box_user_id=me.id, name=me.name, login=me.login)
 
     def get_folder(self, folder_id: str) -> BoxFolder:
         folder = _call_box(

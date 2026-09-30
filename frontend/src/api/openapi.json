@@ -571,6 +571,24 @@
         "title": "PublicSummary",
         "type": "object"
       },
+      "ServerStatus": {
+        "properties": {
+          "anchoring_enabled": {
+            "title": "Anchoring Enabled",
+            "type": "boolean"
+          },
+          "xrpl_network": {
+            "title": "Xrpl Network",
+            "type": "string"
+          }
+        },
+        "required": [
+          "anchoring_enabled",
+          "xrpl_network"
+        ],
+        "title": "ServerStatus",
+        "type": "object"
+      },
       "SessionUser": {
         "description": "The engineer logged in to the dashboard, as identified by Box. Stored in\nthe signed session cookie \u2014 never put Box tokens or secrets here.",
         "properties": {
@@ -1016,6 +1034,8 @@
             "required": false,
             "schema": {
               "default": 50,
+              "maximum": 200,
+              "minimum": 1,
               "title": "Limit",
               "type": "integer"
             }
@@ -1403,6 +1423,28 @@
         ]
       }
     },
+    "/api/status": {
+      "get": {
+        "description": "Public: lets the UI say \"not configured\" instead of \"anchoring\u2026\" forever,\nand gives a quick pre-demo check that XRPL is set up.",
+        "operationId": "server_status_api_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Server Status",
+        "tags": [
+          "status"
+        ]
+      }
+    },
     "/api/subsystems": {
       "get": {
         "operationId": "list_subsystems_api_subsystems_get",
@@ -1482,6 +1524,7 @@
     },
     "/health": {
       "get": {
+        "description": "Liveness check for the host (render.yaml healthCheckPath).",
         "operationId": "health_health_get",
         "responses": {
           "200": {
@@ -1499,7 +1542,10 @@
             "description": "Successful Response"
           }
         },
-        "summary": "Health"
+        "summary": "Health",
+        "tags": [
+          "status"
+        ]
       }
     }
   }

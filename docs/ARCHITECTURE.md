@@ -34,7 +34,8 @@ Backend (FastAPI)
 
 ### Backend (FastAPI)
 
-* Box API client — service-account-authenticated, handles upload, folder listing, and file metadata.
+* Box API client — authenticated via OAuth 2.0 as one authorized Box account (decision #10, which replaced the original service-account plan), handles upload, folder listing, and file metadata, and refuses anything outside the Dashboard root.
+* Engineer login — Box OAuth identifies the engineer and checks their own account can see the Dashboard root; Box I/O then uses the backend's connection (decision #11).
 * Hashing pipeline — computes SHA-256 over file bytes at commit time.
 * XRPL anchoring — submits the hash as a `Memo` on an XRPL transaction (see "Open question: transaction type" below).
 * Commit cache DB — every CDX commit's metadata is written to Postgres/SQLite immediately; the XRPL transaction hash/ledger index is attached once anchoring confirms. This means the dashboard's commit history view reads from the cache, not from XRPL directly, keeping page loads fast and decoupled from ledger availability.
@@ -42,37 +43,24 @@ Backend (FastAPI)
 ### Box Enterprise
 
 * Owns actual file storage and provides OAuth-based identity — engineers log in with their existing CalSol/university Box account.
-* A dedicated **Dashboard root folder** (see `docs/PROJECT-SUMMARY.md` for the intended structure) is the only tree the dashboard manages. A Box service account enforces that engineers write through the dashboard UI rather than editing that tree directly in Box — direct edits would bypass hashing/anchoring and break the commit record.
+* A dedicated **Dashboard root folder** (see `docs/PROJECT-SUMMARY.md` for the intended structure) is the only tree the dashboard manages. Engineers are meant to write through the dashboard so every change is hashed and anchored. That isn't enforced in Box yet: with OAuth instead of a service account (#10) there's no separate identity to own the tree, so direct edits in Box are possible and simply aren't recorded. Each CDX commit pins a Box file version, so verification still checks the exact committed bytes; detecting out-of-band edits (Box webhooks) is Phase 5 work.
 
 ### XRPL
 
 * Used purely as an anchoring/timestamping layer, not for identity, access control, or asset representation.
 * Each CDX commit's SHA-256 hash goes into a transaction `Memo` field. The transaction hash + ledger index are stored in the commit cache DB alongside the CDX commit record, so any commit can be independently verified against the public ledger later.
-* **Open question — transaction type**: candidates are a low-cost `Payment` (e.g. to self, minimal XRP amount) or an `AccountSet` (no value transfer). Needs a decision before Phase 3; record it in `docs/DECISIONS.md` once made.
+* **Transaction type**: a 1-drop `Payment` to a second project-controlled account, with `cdx/commit-id`, `cdx/sha256` and `cdx/design-review-sha256` text memos (decisions #9 and #12; provisional for the Testnet demo).
 * **Open question — wallet custody**: who holds the signing key for the anchoring account (a CalSol officer, a CDA-provided account, a project-specific secret manager) is not yet decided. Must be resolved before any mainnet anchoring goes live.
 * **Network strategy**: testnet during development (Phases 1–4), mainnet at launch. Driven by an `XRPL_NETWORK` environment variable, never hardcoded.
 
-## Data model (sketch)
+## Data model
 
-Commit cache, roughly:
+Defined in `backend/app/models/` with Alembic migrations in `backend/migrations/`:
 
-```
-cdx_commits
-  id
-  box_file_id
-  box_file_version
-  subsystem / subteam
-  author (Box identity)
-  message
-  sha256_hash
-  xrpl_tx_hash        (nullable until anchored)
-  xrpl_ledger_index   (nullable until anchored)
-  created_at
-  anchored_at         (nullable)
-```
+* `cdx_commits` — Box file ID + version + folder, file name/size, SHA-256, optional design review (Box ID + SHA-256), subsystem, author (Box user ID + name), message, anchoring status/error, XRPL network + tx hash + ledger index, created/anchored timestamps.
+* `subsystem_metadata` — per-subsystem lead, design stage, and note (which subsystems exist is defined in `backend/app/subsystems.py`).
+* `box_tokens` — the backend's Box OAuth token when `BOX_TOKEN_STORAGE=database`.
 
-This will firm up during Phase 1 (Box API integration & data model).
+## Deployment
 
-## Deployment (open)
-
-Not yet decided. AWS is plausible given CalSol's existing familiarity; Berkeley-campus or CDA-provided infrastructure is also on the table. No architectural decisions should assume a specific host until this is settled — keep the backend twelve-factor (config via environment variables) so it isn't locked into one target.
+For the demo, managed hosting on Render (`render.yaml`: backend web service, static frontend with an `/api` proxy, Postgres) per decision #9. The long-term target (AWS or Berkeley/CDA infrastructure) is still open (#7); the backend stays twelve-factor (config via environment variables) so it isn't locked into one host.
