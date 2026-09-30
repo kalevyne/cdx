@@ -1,0 +1,44 @@
+services:
+  - name: cdx-backend
+    type: web
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -e .
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      # Box OAuth 2.0 credentials — see backend/README.md. Placeholder strings are
+      # fine to get the service booting; the app only fails at request time when
+      # it actually calls Box, not at startup.
+      - key: BOX_CLIENT_ID
+        sync: false
+      - key: BOX_CLIENT_SECRET
+        sync: false
+      # Must match a Redirect URI on the app in Box's Developer Console — set this
+      # to this service's public Render URL + /api/box/oauth/callback once known
+      # (a redeploy is needed either way to pick up a change here).
+      - key: BOX_REDIRECT_URI
+        sync: false
+      - key: BOX_DASHBOARD_ROOT_FOLDER_ID
+        sync: false
+      - key: XRPL_NETWORK
+        value: testnet
+      - key: XRPL_TESTNET_WALLET_SEED
+        sync: false
+      # DATABASE_URL and BOX_TOKEN_STORAGE_PATH intentionally omitted — both
+      # default to files in app/config.py, and Render's free-tier disk is
+      # ephemeral (wiped on redeploy). Fine for proving the deploy works; the
+      # OAuth authorization (run via backend/scripts/box_oauth_setup.py against
+      # this service's own URL) and real commit data both need a persistent
+      # disk or external store before this is durable.
+
+  - name: cdx-frontend
+    type: web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    routes:
+      - source: /*
+        destination: /index.html
