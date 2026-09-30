@@ -1,7 +1,8 @@
-"""Raw Box I/O: browse folders, read file metadata/content, upload a file.
-Errors from BoxService are mapped to HTTP responses in app/errors.py."""
+"""Read-only Box access: browse folders, read file metadata/content. Writes go
+through CDX commits (routers/cdx_commits.py) so every upload is hashed and
+recorded. Errors from BoxService are mapped to HTTP responses in app/errors.py."""
 
-from fastapi import APIRouter, Depends, UploadFile
+from fastapi import APIRouter, Depends
 from fastapi.responses import Response
 
 from app.auth import require_user
@@ -39,11 +40,3 @@ def download_file(file_id: str, box: BoxService = Depends(get_box_service)) -> R
         media_type="application/octet-stream",
         headers={"Content-Disposition": f'attachment; filename="{safe_name}"'},
     )
-
-
-@router.post("/folders/{folder_id}/files", response_model=BoxFileMetadata, status_code=201)
-async def upload_file(
-    folder_id: str, file: UploadFile, box: BoxService = Depends(get_box_service)
-) -> BoxFileMetadata:
-    content = await file.read()
-    return box.upload_file(folder_id, file.filename, content)

@@ -1,4 +1,4 @@
-from app.subsystems import SUBSYSTEMS, subsystem_for_folder_path
+from app.subsystems import SUBSYSTEMS, subsystem_for_folder_name
 
 
 def test_subsystem_slugs_are_unique():
@@ -6,9 +6,10 @@ def test_subsystem_slugs_are_unique():
     assert len(slugs) == len(set(slugs))
 
 
-def test_subsystem_for_folder_path_matches_ancestor_case_insensitively():
-    assert subsystem_for_folder_path(["All Files", "CDX", "Zephyr", "battery", "CAD"]) == "battery"
+def test_subsystem_for_folder_name_is_case_insensitive():
+    assert subsystem_for_folder_name("battery") == "battery"
+    assert subsystem_for_folder_name("BizOps") == "bizops"
 
 
-def test_subsystem_for_folder_path_outside_subsystem_folders():
-    assert subsystem_for_folder_path(["All Files", "CDX", "Zephyr"]) is None
+def test_subsystem_for_folder_name_outside_subsystems():
+    assert subsystem_for_folder_name("Zephyr") is None

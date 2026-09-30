@@ -8,20 +8,22 @@ from box_sdk_gen import (
     BoxClient,
     BoxOAuth,
     CreateFolderParent,
-    FileTokenStorage,
     OAuthConfig,
     TokenStorage,
     UploadFileAttributes,
     UploadFileAttributesParentField,
+    UploadFileVersionAttributes,
 )
 
 from app.config import Settings, get_settings
-from app.schemas.box import BoxFileMetadata, BoxFolderListing, BoxItem
+from app.schemas.box import BoxFileMetadata, BoxFolderListing, BoxFolderRef, BoxItem
+from app.services.box_token_storage import make_backend_token_storage
 
 T = TypeVar("T")
 
 # Box's maximum page size for folder listings.
 _FOLDER_PAGE_LIMIT = 1000
+_FILE_FIELDS = ["id", "name", "size", "parent", "modified_at", "sha1", "file_version"]
 
 
 class BoxNotFoundError(Exception):
@@ -61,10 +63,10 @@ class BoxService:
     Authentication) as whichever Box account completed the one-time authorization
     in `backend/scripts/box_oauth_setup.py` — that account's own Box permissions
     determine what CDX can see. See backend/README.md for setup. Tokens persist
-    to `settings.box_token_storage_path` and refresh automatically."""
+    per `settings.box_token_storage` and refresh automatically."""
 
     def __init__(self, settings: Settings) -> None:
-        auth = make_box_oauth(settings, FileTokenStorage(settings.box_token_storage_path))
+        auth = make_box_oauth(settings, make_backend_token_storage(settings))
         self._client = BoxClient(auth=auth)
 
     def list_folder(self, folder_id: str) -> BoxFolderListing:
@@ -85,28 +87,58 @@ class BoxService:
         )
         return created.id
 
+    def get_folder_path(self, folder_id: str) -> list[BoxFolderRef]:
+        """The folder's ancestors from the Box root down, ending with the folder itself."""
+        folder = call_box(
+            lambda: self._client.folders.get_folder_by_id(
+                folder_id, fields=["id", "name", "path_collection"]
+            ),
+            folder_id,
+        )
+        ancestors = [BoxFolderRef(id=f.id, name=f.name) for f in folder.path_collection.entries]
+        return [*ancestors, BoxFolderRef(id=folder.id, name=folder.name)]
+
     def get_file_metadata(self, file_id: str) -> BoxFileMetadata:
         file = call_box(
-            lambda: self._client.files.get_file_by_id(
-                file_id, fields=["id", "name", "size", "parent", "modified_at", "sha1"]
-            ),
-            file_id,
+            lambda: self._client.files.get_file_by_id(file_id, fields=_FILE_FIELDS), file_id
         )
         return self._to_file_metadata(file)
 
-    def download_file(self, file_id: str) -> bytes:
-        stream = call_box(lambda: self._client.downloads.download_file(file_id), file_id)
+    def download_file(self, file_id: str, version_id: str | None = None) -> bytes:
+        """The file's current content, or the content of a specific earlier version."""
+        stream = call_box(
+            lambda: self._client.downloads.download_file(file_id, version=version_id), file_id
+        )
         return stream.read()
 
     def upload_file(self, folder_id: str, filename: str, content: bytes) -> BoxFileMetadata:
-        attributes = UploadFileAttributes(
-            name=filename,
-            parent=UploadFileAttributesParentField(id=folder_id),
+        """Upload `content` as `filename` into the folder. If a file with that name
+        is already there, the upload becomes a new version of it (Box rejects
+        duplicate names, and a re-commit of the same file should keep its history)."""
+        existing = next(
+            (i for i in self._list_items(folder_id) if i.type == "file" and i.name == filename),
+            None,
         )
-        result = call_box(
-            lambda: self._client.uploads.upload_file(attributes, BytesIO(content)),
-            folder_id,
-        )
+        if existing:
+            result = call_box(
+                lambda: self._client.uploads.upload_file_version(
+                    existing.id,
+                    UploadFileVersionAttributes(name=filename),
+                    BytesIO(content),
+                    fields=_FILE_FIELDS,
+                ),
+                existing.id,
+            )
+        else:
+            attributes = UploadFileAttributes(
+                name=filename, parent=UploadFileAttributesParentField(id=folder_id)
+            )
+            result = call_box(
+                lambda: self._client.uploads.upload_file(
+                    attributes, BytesIO(content), fields=_FILE_FIELDS
+                ),
+                folder_id,
+            )
         metadata = self._to_file_metadata(result.entries[0])
         # Box's response reflects the parent it actually stored the file under;
         # pin it to the folder_id we uploaded to rather than trust the response shape.
@@ -142,6 +174,7 @@ class BoxService:
             modified_at=getattr(file, "modified_at", None),
             # box-sdk-gen maps the JSON `sha1` field to the Python attribute `sha_1`.
             box_sha1=getattr(file, "sha_1", None),
+            version_id=file.file_version.id if getattr(file, "file_version", None) else None,
         )
 
 

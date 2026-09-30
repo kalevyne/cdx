@@ -115,9 +115,41 @@ Dashboard root folder, sets a signed `session` cookie, and redirects to
 curl -b 'session=<value>' http://127.0.0.1:8000/api/auth/me
 ```
 
-All `/api/folders` and `/api/files` routes return 401 without it. See
+All `/api/folders`, `/api/files` and `/api/cdx-commits` routes return 401
+without it. See
 `docs/DECISIONS.md` #11 for why the login only identifies the engineer and
 Box I/O still goes through the backend's own connection.
+
+## 6. Make a CDX commit (curl-testable)
+
+```bash
+curl -b 'session=<value>' http://127.0.0.1:8000/api/cdx-commits \
+  -F folder_id=<Box folder ID> -F message="Initial pack layout" \
+  -F file=@pack.step -F design_review=@review.pdf   # design_review is optional
+```
+
+This uploads the file to that Box folder (as a new version if a file with the
+same name is already there), computes its SHA-256, and records a
+`cdx_commits` row. The subsystem is worked out from the folder's path (the
+nearest ancestor named after an entry in `app/subsystems.py`), and the design
+review goes into that subsystem's `Design Reviews` folder. Files are limited
+to 50 MB (Box's single-upload limit).
+
+## Deploying to staging (Render)
+
+`render.yaml` at the repo root is a Render Blueprint for both services plus a
+Postgres database. After the first deploy:
+
+1. Add `https://<frontend>.onrender.com/api/auth/callback` as a Redirect URI
+   on the Box app, and fill in the `sync: false` env vars in Render.
+2. Authorize the backend's Box connection into the deployed database, from
+   your laptop:
+   ```bash
+   DATABASE_URL='<cdx-db external URL>' BOX_TOKEN_STORAGE=database \
+     python -m scripts.box_oauth_setup
+   ```
+   (The local redirect URI still works — the token just lands in Postgres
+   instead of a file, where the deployed backend reads it.)
 
 ## What's here
 
@@ -133,10 +165,18 @@ Box I/O still goes through the backend's own connection.
   [box-sdk-gen](https://github.com/box/box-python-sdk-gen) for list/read/upload/
   download, translating Box API errors into `BoxNotFoundError` / `BoxServiceError`.
 - `app/services/box_login.py` — the engineer login exchange + access check.
+- `app/services/box_token_storage.py` — file- or database-backed storage for
+  the backend's own Box token.
+- `app/services/hashing.py` — SHA-256 of committed file bytes.
+- `app/services/cdx_commits.py` — creating/reading CDX commits.
 - `app/routers/` — thin FastAPI routes over the services.
-- `app/models/cdx_commit.py` — the `cdx_commits` table.
+- `app/models/` — the `cdx_commits` and `box_tokens` tables.
 - `migrations/` — Alembic migrations for every table.
 - `scripts/` — one-off operator commands (Box authorization, folder layout).
+
+Uploads only happen through CDX commits: there's deliberately no raw upload
+route, since a file written to the dashboard tree without a commit would have
+no hash or record.
 
 ## Tests & linting
 
@@ -174,4 +214,6 @@ the migrations disagree, so a forgotten migration shows up in CI.
 | GET    | `/api/folders/{folder_id}`       | yes  | List an arbitrary folder's contents       |
 | GET    | `/api/files/{file_id}`           | yes  | File metadata                             |
 | GET    | `/api/files/{file_id}/content`   | yes  | Download file bytes                       |
-| POST   | `/api/folders/{folder_id}/files` | yes  | Upload a file into a folder               |
+| POST   | `/api/cdx-commits`               | yes  | Commit a file (multipart, see step 6)     |
+| GET    | `/api/cdx-commits`               | yes  | Recent CDX commits (`?subsystem=&limit=`) |
+| GET    | `/api/cdx-commits/{id}`          | yes  | One CDX commit                            |

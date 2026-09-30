@@ -46,23 +46,28 @@ def test_list_folder_maps_entries(box_service):
     assert listing.items[0].size == 2048
 
 
+def _box_file(file_id: str = "9", name: str = "battery-pack.step", **attrs):
+    """A stand-in for a box-sdk-gen file object."""
+    defaults = {"size": 4096, "parent": None, "modified_at": None, "sha_1": None}
+    file_obj = MagicMock(id=file_id, file_version=MagicMock(id=f"v-{file_id}"))
+    file_obj.name = name  # `name` is reserved by MagicMock's constructor
+    for key, value in {**defaults, **attrs}.items():
+        setattr(file_obj, key, value)
+    return file_obj
+
+
 def test_get_file_metadata_maps_sha_1_attribute(box_service):
     # box-sdk-gen maps the JSON `sha1` field to the Python attribute `sha_1` —
     # this test guards against silently regressing back to the wrong name.
-    file_obj = MagicMock()
-    file_obj.id = "9"
-    file_obj.name = "battery-pack.step"
-    file_obj.size = 4096
-    file_obj.parent = MagicMock(id="42")
-    file_obj.modified_at = None
-    file_obj.sha_1 = "abc123"
-
-    box_service._client.files.get_file_by_id.return_value = file_obj
+    box_service._client.files.get_file_by_id.return_value = _box_file(
+        parent=MagicMock(id="42"), sha_1="abc123"
+    )
 
     metadata = box_service.get_file_metadata("9")
 
     assert metadata.box_sha1 == "abc123"
     assert metadata.parent_id == "42"
+    assert metadata.version_id == "v-9"
 
 
 def test_download_file_reads_stream(box_service):
@@ -70,29 +75,53 @@ def test_download_file_reads_stream(box_service):
     stream.read.return_value = b"file-bytes"
     box_service._client.downloads.download_file.return_value = stream
 
-    content = box_service.download_file("9")
+    content = box_service.download_file("9", version_id="v1")
 
     assert content == b"file-bytes"
+    box_service._client.downloads.download_file.assert_called_once_with("9", version="v1")
 
 
-def test_upload_file_returns_metadata(box_service):
-    uploaded = MagicMock()
-    uploaded.id = "77"
-    uploaded.name = "notes.md"
-    uploaded.size = 12
-    uploaded.parent = None
-    uploaded.modified_at = None
-    uploaded.sha_1 = "deadbeef"
-
-    result = MagicMock()
-    result.entries = [uploaded]
-    box_service._client.uploads.upload_file.return_value = result
+def test_upload_file_creates_new_file(box_service):
+    box_service._client.folders.get_folder_items.return_value = _folder_items()
+    box_service._client.uploads.upload_file.return_value = MagicMock(
+        entries=[_box_file("77", "notes.md")]
+    )
 
     metadata = box_service.upload_file("42", "notes.md", b"hello world!")
 
+    assert (metadata.id, metadata.parent_id, metadata.version_id) == ("77", "42", "v-77")
+    box_service._client.uploads.upload_file_version.assert_not_called()
+
+
+def test_upload_file_with_existing_name_uploads_new_version(box_service):
+    existing = _box_file("77", "notes.md", type=FileBaseTypeField.FILE)
+    box_service._client.folders.get_folder_items.return_value = _folder_items(existing)
+    box_service._client.uploads.upload_file_version.return_value = MagicMock(
+        entries=[_box_file("77", "notes.md")]
+    )
+
+    metadata = box_service.upload_file("42", "notes.md", b"v2")
+
     assert metadata.id == "77"
-    assert metadata.parent_id == "42"
-    box_service._client.uploads.upload_file.assert_called_once()
+    assert box_service._client.uploads.upload_file_version.call_args.args[0] == "77"
+    box_service._client.uploads.upload_file.assert_not_called()
+
+
+def test_get_folder_path_ends_with_folder_itself(box_service):
+    folder = MagicMock(id="3")
+    folder.name = "Battery"
+    root, vehicle = MagicMock(id="0"), MagicMock(id="2")
+    root.name, vehicle.name = "All Files", "Zephyr"
+    folder.path_collection.entries = [root, vehicle]
+    box_service._client.folders.get_folder_by_id.return_value = folder
+
+    path = box_service.get_folder_path("3")
+
+    assert [(f.id, f.name) for f in path] == [
+        ("0", "All Files"),
+        ("2", "Zephyr"),
+        ("3", "Battery"),
+    ]
 
 
 def test_404_translates_to_not_found(box_service):

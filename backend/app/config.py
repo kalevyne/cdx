@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -18,6 +19,8 @@ class Settings(BaseSettings):
     # Redirect URI for engineers logging in to the dashboard (routers/auth.py).
     # Must also be registered on the Box app; see backend/README.md.
     box_login_redirect_uri: str = "http://127.0.0.1:8000/api/auth/callback"
+    # Where the backend's own Box token lives: see app/services/box_token_storage.py.
+    box_token_storage: Literal["file", "database"] = "file"
     box_token_storage_path: str = ".box_tokens"
     box_dashboard_root_folder_id: str | None = None
 

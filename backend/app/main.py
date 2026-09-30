@@ -7,7 +7,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.config import get_settings
 from app.db import run_migrations
 from app.errors import register_error_handlers
-from app.routers import auth, files
+from app.routers import auth, cdx_commits, files
 
 
 @asynccontextmanager
@@ -28,6 +28,7 @@ app.add_middleware(
 register_error_handlers(app)
 app.include_router(auth.router, prefix="/api", tags=["auth"])
 app.include_router(files.router, prefix="/api", tags=["box"])
+app.include_router(cdx_commits.router, prefix="/api", tags=["cdx-commits"])
 
 
 @app.get("/health")

@@ -53,20 +53,6 @@ def test_box_failure_returns_502(client, box_service_mock):
     assert response.status_code == 502
 
 
-def test_upload_file_returns_created_metadata(client, box_service_mock):
-    box_service_mock.upload_file.return_value = BoxFileMetadata(
-        id="77", name="notes.md", size=12, parent_id="42"
-    )
-
-    response = client.post(
-        "/api/folders/42/files",
-        files={"file": ("notes.md", b"hello world!", "text/plain")},
-    )
-
-    assert response.status_code == 201
-    assert response.json()["id"] == "77"
-
-
 def test_download_file_returns_bytes_with_filename(client, box_service_mock):
     box_service_mock.get_file_metadata.return_value = BoxFileMetadata(
         id="9", name="notes.md", size=5, parent_id="42"

@@ -13,7 +13,6 @@ Box layout the dashboard owns (see docs/PROJECT-SUMMARY.md):
                 Design Reviews/
 """
 
-from collections.abc import Iterable
 from dataclasses import dataclass
 
 
@@ -34,16 +33,13 @@ SUBSYSTEMS: tuple[Subsystem, ...] = (
     Subsystem("bizops", "BizOps"),
 )
 
-SUBSYSTEM_SUBFOLDERS: tuple[str, ...] = ("CAD", "Design Reviews")
+CAD_FOLDER = "CAD"
+DESIGN_REVIEWS_FOLDER = "Design Reviews"
+SUBSYSTEM_SUBFOLDERS: tuple[str, ...] = (CAD_FOLDER, DESIGN_REVIEWS_FOLDER)
 
 _SLUG_BY_FOLDER_NAME = {s.name.casefold(): s.slug for s in SUBSYSTEMS}
 
 
-def subsystem_for_folder_path(folder_names: Iterable[str]) -> str | None:
-    """Return the subsystem slug for a Box folder, given the names of the folder
-    and its ancestors (any order), or None if it isn't inside a subsystem folder."""
-    for name in folder_names:
-        slug = _SLUG_BY_FOLDER_NAME.get(name.casefold())
-        if slug:
-            return slug
-    return None
+def subsystem_for_folder_name(name: str) -> str | None:
+    """The slug of the subsystem whose Box folder is called `name`, if any."""
+    return _SLUG_BY_FOLDER_NAME.get(name.casefold())

@@ -64,9 +64,18 @@ action · `[ ]` not started · `[!]` blocked (see "Blocked / fix later").
   Box app, then follow backend/README.md step 5. Design: DECISIONS.md #11.
 
 ### Checkpoint 2 — Vertical slice deployed
-- [ ] SHA-256 hashing pipeline.
-- [ ] Commit endpoint: upload → Box → hash → `cdx_commits` row.
-- [ ] Staging deploy config.
+- [x] SHA-256 hashing pipeline (`app/services/hashing.py`).
+- [x] Commit endpoint `POST /api/cdx-commits`: upload → Box (new version if
+  the name exists) → hash → `cdx_commits` row; subsystem derived from the
+  Box folder path; optional design review goes to `<Subsystem>/Design
+  Reviews`. The raw upload route was removed so nothing bypasses the record.
+- [~] Staging deploy config: `render.yaml` now provisions Postgres, keeps the
+  backend's Box token in the DB (`BOX_TOKEN_STORAGE=database`, since Render's
+  disk is wiped per deploy), and proxies `/api/*` from the frontend domain.
+  **Needs a human** to create the Render Blueprint and do the steps in
+  backend/README.md "Deploying to staging". Unverified assumptions: Render
+  static-site rewrites to an external URL work as a proxy, and the default
+  `*.onrender.com` names are free (else update the 3 "SERVICE URL" lines).
 
 ### Checkpoint 3 — Core loop demoable
 - [ ] Commit form UI.
@@ -103,9 +112,17 @@ Each entry: what's blocked, why, and the concrete next step.
    it once; nothing wrote to it. Mentioned in backend/README.md step 3.
 4. **New required setting `SESSION_SECRET`** — existing local `.env` files
    need it added or the backend won't start. render.yaml generates it.
+5. **If Render's `/api/*` rewrite doesn't proxy to the backend** (item under
+   Checkpoint 2): fallback is to point the frontend at the backend URL
+   directly (`VITE_API_BASE_URL`), add CORS for `FRONTEND_URL` with
+   credentials, and make the session cookie `SameSite=None`. Not built
+   speculatively.
+6. **Files over 50 MB** are rejected (Box's single-upload limit). CAD files
+   can exceed that; supporting them means Box's chunked upload API in
+   `BoxService.upload_file`.
 
 ## Session log
 
 - 2026-09-30 — Session 1: created this file, rebased branch onto PR #1's
   scaffold, confirmed 11 backend tests + frontend build pass as the baseline.
-  Checkpoint 1 code done (30 backend tests).
+  Checkpoint 1 code done (30 backend tests). Checkpoint 2 code done (42).

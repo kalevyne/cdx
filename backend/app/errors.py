@@ -8,10 +8,19 @@ from fastapi.responses import JSONResponse
 
 from app.config import ConfigurationError
 from app.services.box_client import BoxNotFoundError, BoxServiceError
+from app.services.cdx_commits import (
+    CdxCommitNotFoundError,
+    FileTooLargeError,
+    InvalidCdxCommitError,
+)
 
+# Subclasses resolve to their own entry first (e.g. FileTooLargeError → 413).
 _STATUS_CODES: dict[type[Exception], int] = {
     BoxNotFoundError: 404,
     BoxServiceError: 502,
+    CdxCommitNotFoundError: 404,
+    InvalidCdxCommitError: 422,
+    FileTooLargeError: 413,
     ConfigurationError: 503,
 }
 
