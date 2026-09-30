@@ -1,10 +1,11 @@
 from unittest.mock import MagicMock
 
 import pytest
-from box_sdk_gen import BoxAPIError, FileBaseTypeField
+from box_sdk_gen import FileBaseTypeField, FolderBaseTypeField
 
 from app.config import get_settings
 from app.services.box_client import BoxNotFoundError, BoxService, BoxServiceError
+from tests.conftest import box_api_error
 
 
 @pytest.fixture
@@ -95,18 +96,46 @@ def test_upload_file_returns_metadata(box_service):
 
 
 def test_404_translates_to_not_found(box_service):
-    response_info = MagicMock(status_code=404)
-    error = BoxAPIError(request_info=MagicMock(), response_info=response_info, message="not found")
-    box_service._client.files.get_file_by_id.side_effect = error
+    box_service._client.files.get_file_by_id.side_effect = box_api_error(404)
 
     with pytest.raises(BoxNotFoundError):
         box_service.get_file_metadata("missing")
 
 
 def test_other_api_error_translates_to_service_error(box_service):
-    response_info = MagicMock(status_code=500)
-    error = BoxAPIError(request_info=MagicMock(), response_info=response_info, message="boom")
-    box_service._client.files.get_file_by_id.side_effect = error
+    box_service._client.files.get_file_by_id.side_effect = box_api_error(500)
 
     with pytest.raises(BoxServiceError):
         box_service.get_file_metadata("9")
+
+
+def _folder_items(*entries):
+    result = MagicMock()
+    result.entries = list(entries)
+    return result
+
+
+def _folder_entry(folder_id: str, name: str):
+    entry = MagicMock(id=folder_id, type=FolderBaseTypeField.FOLDER, size=None, modified_at=None)
+    entry.name = name
+    return entry
+
+
+def test_ensure_folder_reuses_existing_folder(box_service):
+    box_service._client.folders.get_folder_items.return_value = _folder_items(
+        _folder_entry("5", "Battery")
+    )
+
+    assert box_service.ensure_folder("1", "Battery") == "5"
+    box_service._client.folders.create_folder.assert_not_called()
+
+
+def test_ensure_folder_creates_missing_folder(box_service):
+    box_service._client.folders.get_folder_items.return_value = _folder_items(
+        _folder_entry("5", "Battery")
+    )
+    box_service._client.folders.create_folder.return_value = MagicMock(id="6")
+
+    assert box_service.ensure_folder("1", "Solar") == "6"
+    name, parent = box_service._client.folders.create_folder.call_args.args
+    assert (name, parent.id) == ("Solar", "1")

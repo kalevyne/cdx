@@ -2,19 +2,31 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from starlette.middleware.sessions import SessionMiddleware
 
-import app.models  # noqa: F401 — registers models on Base before create_all
-from app.db import Base, get_engine
-from app.routers import files
+from app.config import get_settings
+from app.db import run_migrations
+from app.errors import register_error_handlers
+from app.routers import auth, files
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    Base.metadata.create_all(bind=get_engine())
+    run_migrations()
     yield
 
 
+settings = get_settings()
+
 app = FastAPI(title="CDX Backend", lifespan=lifespan)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.session_secret,
+    same_site="lax",
+    https_only=settings.session_cookie_secure,
+)
+register_error_handlers(app)
+app.include_router(auth.router, prefix="/api", tags=["auth"])
 app.include_router(files.router, prefix="/api", tags=["box"])
 
 

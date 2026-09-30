@@ -11,6 +11,9 @@ dependencies = [
     "pydantic-settings>=2.6",
     "sqlalchemy>=2.0",
     "python-multipart>=0.0.12",
+    "alembic>=1.14",
+    "itsdangerous>=2.2",
+    "psycopg[binary]>=3.2",
 ]
 
 [project.optional-dependencies]
@@ -31,6 +34,7 @@ select = ["E", "F", "I", "UP", "B"]
 [tool.ruff.lint.per-file-ignores]
 # FastAPI's `Depends(...)` as a default argument is the documented pattern, not a bug.
 "app/routers/*.py" = ["B008"]
+"app/auth.py" = ["B008"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

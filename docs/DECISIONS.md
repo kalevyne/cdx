@@ -113,3 +113,17 @@ Chronological record of significant decisions for CDX, including what was consid
 **Trade-off accepted**: The backend no longer has an independent service-account identity — it acts as whatever specific Box account (intended: the maintainer's own Berkeley account) authorized it, inheriting that account's own folder access instead of needing an explicit collaborator invite. This is weaker than a service account: it's tied to one person's continued access, not a durable team-owned identity. Revisit once Box access stops being a blocker (retry Berkeley IT, or pursue Box's nonprofit donation program via TechSoup if CalSol or a fiscal sponsor qualifies as a 501(c)(3)) — don't let this stopgap become permanent by default.
 
 **Status**: Active (2026-09-28). Superseding decision — the CCG approach described in `docs/ARCHITECTURE.md` is no longer current; that doc should be updated to match when next touched.
+
+---
+
+## 11. Engineer login identifies the engineer; Box I/O stays on the backend's connection
+
+**Decision**: Engineers log in with Box OAuth 2.0 using the same Box app as the backend (`backend/app/services/box_login.py`). At login, CDX reads who they are and checks that *their own* Box account can see the Dashboard root folder — if not, login is refused. Their Box token is then discarded; the session cookie only holds their Box user ID, name, and login. All Box reads/writes afterwards go through the backend's own connection (decision #10).
+
+**Considered**: Keeping each engineer's Box token server-side and making every Box call as them, so Box's per-folder permissions apply to each request.
+
+**Why not (yet)**: It needs server-side token storage per user, refresh handling, and re-login flows — days of work the deadline didn't have — and CalSol's dashboard tree is shared by all subteams anyway. The root-folder check keeps access Box-native (whoever CalSol shares the folder with can log in; removing someone in Box locks them out at their next login) without per-request delegation.
+
+**Trade-off accepted**: Within the dashboard tree, a logged-in engineer can see anything the backend's account can, not just what their own Box account can. Revisit if subteams ever need folders hidden from each other.
+
+**Status**: Active (2026-09-30).

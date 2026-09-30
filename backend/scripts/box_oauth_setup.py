@@ -14,20 +14,15 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs, urlparse
 
-from box_sdk_gen import BoxOAuth, FileTokenStorage, GetAuthorizeUrlOptions, OAuthConfig
+from box_sdk_gen import FileTokenStorage, GetAuthorizeUrlOptions
 
 from app.config import get_settings
+from app.services.box_client import make_box_oauth
 
 
 def main() -> None:
     settings = get_settings()
-    auth = BoxOAuth(
-        OAuthConfig(
-            client_id=settings.box_client_id,
-            client_secret=settings.box_client_secret,
-            token_storage=FileTokenStorage(settings.box_token_storage_path),
-        )
-    )
+    auth = make_box_oauth(settings, FileTokenStorage(settings.box_token_storage_path))
 
     redirect = urlparse(settings.box_redirect_uri)
     authorization_code: list[str] = []

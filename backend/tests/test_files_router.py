@@ -1,81 +1,84 @@
-from unittest.mock import MagicMock
-
-from fastapi.testclient import TestClient
-
-from app.main import app
 from app.schemas.box import BoxFileMetadata, BoxFolderListing, BoxItem
-from app.services.box_client import BoxNotFoundError, get_box_service
+from app.services.box_client import BoxNotFoundError, BoxServiceError
 
 
-def _client_with_box_service(mock_service) -> TestClient:
-    app.dependency_overrides[get_box_service] = lambda: mock_service
-    return TestClient(app)
-
-
-def test_get_folder_returns_listing():
-    mock_service = MagicMock()
-    mock_service.list_folder.return_value = BoxFolderListing(
+def test_get_folder_returns_listing(client, box_service_mock):
+    box_service_mock.list_folder.return_value = BoxFolderListing(
         folder_id="42",
         folder_name="Dashboard",
         items=[BoxItem(id="1", type="file", name="a.txt")],
     )
-    with _client_with_box_service(mock_service) as client:
-        response = client.get("/api/folders/42")
 
-    app.dependency_overrides.clear()
+    response = client.get("/api/folders/42")
+
     assert response.status_code == 200
     assert response.json()["folder_name"] == "Dashboard"
 
 
-def test_get_dashboard_root_folder_uses_configured_id():
-    mock_service = MagicMock()
-    mock_service.list_folder.return_value = BoxFolderListing(
+def test_get_dashboard_root_folder_uses_configured_id(client, box_service_mock):
+    box_service_mock.list_folder.return_value = BoxFolderListing(
         folder_id="0", folder_name="Dashboard Root", items=[]
     )
-    with _client_with_box_service(mock_service) as client:
-        response = client.get("/api/folders")
 
-    app.dependency_overrides.clear()
+    response = client.get("/api/folders")
+
     assert response.status_code == 200
-    mock_service.list_folder.assert_called_once_with("0")
+    box_service_mock.list_folder.assert_called_once_with("0")
 
 
-def test_get_file_not_found_returns_404():
-    mock_service = MagicMock()
-    mock_service.get_file_metadata.side_effect = BoxNotFoundError("nope")
-    with _client_with_box_service(mock_service) as client:
-        response = client.get("/api/files/999")
+def test_unconfigured_dashboard_root_returns_503(client, monkeypatch):
+    from app.config import get_settings
 
-    app.dependency_overrides.clear()
+    monkeypatch.setenv("BOX_DASHBOARD_ROOT_FOLDER_ID", "")
+    get_settings.cache_clear()
+
+    response = client.get("/api/folders")
+
+    assert response.status_code == 503
+
+
+def test_get_file_not_found_returns_404(client, box_service_mock):
+    box_service_mock.get_file_metadata.side_effect = BoxNotFoundError("nope")
+
+    response = client.get("/api/files/999")
+
     assert response.status_code == 404
 
 
-def test_upload_file_returns_created_metadata():
-    mock_service = MagicMock()
-    mock_service.upload_file.return_value = BoxFileMetadata(
+def test_box_failure_returns_502(client, box_service_mock):
+    box_service_mock.list_folder.side_effect = BoxServiceError("boom")
+
+    response = client.get("/api/folders/42")
+
+    assert response.status_code == 502
+
+
+def test_upload_file_returns_created_metadata(client, box_service_mock):
+    box_service_mock.upload_file.return_value = BoxFileMetadata(
         id="77", name="notes.md", size=12, parent_id="42"
     )
-    with _client_with_box_service(mock_service) as client:
-        response = client.post(
-            "/api/folders/42/files",
-            files={"file": ("notes.md", b"hello world!", "text/plain")},
-        )
 
-    app.dependency_overrides.clear()
+    response = client.post(
+        "/api/folders/42/files",
+        files={"file": ("notes.md", b"hello world!", "text/plain")},
+    )
+
     assert response.status_code == 201
     assert response.json()["id"] == "77"
 
 
-def test_download_file_returns_bytes_with_filename():
-    mock_service = MagicMock()
-    mock_service.get_file_metadata.return_value = BoxFileMetadata(
+def test_download_file_returns_bytes_with_filename(client, box_service_mock):
+    box_service_mock.get_file_metadata.return_value = BoxFileMetadata(
         id="9", name="notes.md", size=5, parent_id="42"
     )
-    mock_service.download_file.return_value = b"hello"
-    with _client_with_box_service(mock_service) as client:
-        response = client.get("/api/files/9/content")
+    box_service_mock.download_file.return_value = b"hello"
 
-    app.dependency_overrides.clear()
+    response = client.get("/api/files/9/content")
+
     assert response.status_code == 200
     assert response.content == b"hello"
     assert "notes.md" in response.headers["content-disposition"]
+
+
+def test_box_routes_require_login(anonymous_client):
+    assert anonymous_client.get("/api/folders/42").status_code == 401
