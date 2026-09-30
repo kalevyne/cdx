@@ -212,3 +212,7 @@ Each entry: what's blocked, why, and the concrete next step.
   Checkpoint 4 done (60 backend tests). Checkpoint 5 done (67).
   Checkpoint 6 done (73 backend tests; frontend build + lint clean). Top-level
   docs (README, CLAUDE.md, ARCHITECTURE.md) refreshed to match the code.
+- 2026-09-30 — Fix: `xrpl-py` was missing from `backend/pyproject.toml` (it
+  was only installed in the agent's venv), so a fresh install crashed on
+  startup with `No module named 'xrpl'`. Verified with a fresh venv built
+  from `pyproject.toml` alone (73 tests pass).
