@@ -32,8 +32,7 @@ def get_file_metadata(file_id: str, box: BoxService = Depends(get_box_service)) 
 
 @router.get("/files/{file_id}/content")
 def download_file(file_id: str, box: BoxService = Depends(get_box_service)) -> Response:
-    metadata = box.get_file_metadata(file_id)
-    content = box.download_file(file_id)
+    metadata, content = box.download_file(file_id)
     safe_name = metadata.name.replace('"', "")
     return Response(
         content=content,

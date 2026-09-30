@@ -5,12 +5,14 @@ import pytest
 from box_sdk_gen import BoxAPIError
 from fastapi.testclient import TestClient
 
+DASHBOARD_ROOT_ID = "100"
+
 # Set before any test module imports app.main, which reads settings at import time.
 os.environ.update(
     {
         "BOX_CLIENT_ID": "test-client-id",
         "BOX_CLIENT_SECRET": "test-client-secret",
-        "BOX_DASHBOARD_ROOT_FOLDER_ID": "0",
+        "BOX_DASHBOARD_ROOT_FOLDER_ID": DASHBOARD_ROOT_ID,
         "SESSION_SECRET": "test-session-secret",
         "FRONTEND_URL": "http://frontend.test",
     }

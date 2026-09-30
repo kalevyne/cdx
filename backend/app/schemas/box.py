@@ -19,9 +19,12 @@ class BoxFolderRef(BaseModel):
     name: str
 
 
-class BoxFolderListing(BaseModel):
-    folder_id: str
-    folder_name: str
+class BoxFolder(BoxFolderRef):
+    # Ancestors from the Dashboard root down to the parent; empty for the root.
+    path: list[BoxFolderRef] = []
+
+
+class BoxFolderListing(BoxFolder):
     items: list[BoxItem]
 
 
@@ -30,6 +33,8 @@ class BoxFileMetadata(BaseModel):
     name: str
     size: int
     parent_id: str | None = None
+    # Ancestors from the Dashboard root down to the file's folder.
+    path: list[BoxFolderRef] = []
     modified_at: datetime | None = None
     # Box's own content checksum (SHA-1), used for Box-side integrity checks.
     # Not the CDX commit's anchor hash — that's a SHA-256 computed by the

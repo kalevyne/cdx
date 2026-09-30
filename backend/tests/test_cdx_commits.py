@@ -2,22 +2,28 @@ import hashlib
 
 import pytest
 
-from app.schemas.box import BoxFileMetadata, BoxFolderRef
+from app.schemas.box import BoxFileMetadata, BoxFolder, BoxFolderRef
 from app.services.cdx_commits import MAX_UPLOAD_BYTES
-from tests.conftest import TEST_USER
+from tests.conftest import DASHBOARD_ROOT_ID, TEST_USER
 
-BATTERY_PATH = [
-    BoxFolderRef(id="0", name="All Files"),
-    BoxFolderRef(id="1", name="CDX"),
-    BoxFolderRef(id="2", name="Zephyr"),
-    BoxFolderRef(id="3", name="Battery"),
-    BoxFolderRef(id="4", name="CAD"),
-]
+# The commit target folder: CDX (Dashboard root) > Zephyr > Battery > CAD.
+BATTERY_CAD = BoxFolder(
+    id="4",
+    name="CAD",
+    path=[
+        BoxFolderRef(id=DASHBOARD_ROOT_ID, name="CDX"),
+        BoxFolderRef(id="2", name="Zephyr"),
+        BoxFolderRef(id="3", name="Battery"),
+    ],
+)
+VEHICLE_FOLDER = BoxFolder(
+    id="4", name="Zephyr", path=[BoxFolderRef(id=DASHBOARD_ROOT_ID, name="CDX")]
+)
 
 
 @pytest.fixture
 def box(box_service_mock):
-    box_service_mock.get_folder_path.return_value = BATTERY_PATH
+    box_service_mock.get_folder.return_value = BATTERY_CAD
     box_service_mock.ensure_folder.return_value = "design-reviews-folder"
     box_service_mock.upload_file.side_effect = lambda folder_id, name, content: BoxFileMetadata(
         id=f"file-{name}", name=name, size=len(content), parent_id=folder_id, version_id="v1"
@@ -58,7 +64,7 @@ def test_design_review_goes_to_subsystem_design_reviews_folder(client, box):
 
 
 def test_commit_outside_subsystem_has_no_subsystem(client, box):
-    box.get_folder_path.return_value = BATTERY_PATH[:3]
+    box.get_folder.return_value = VEHICLE_FOLDER
 
     body = _commit(client, design_review=("review.pdf", b"r", "application/pdf")).json()
 
@@ -91,7 +97,7 @@ def test_oversized_file_is_rejected(client, box):
 def test_list_filters_by_subsystem_newest_first(client, box):
     first = _commit(client, message="first").json()
     second = _commit(client, message="second").json()
-    box.get_folder_path.return_value = BATTERY_PATH[:3]
+    box.get_folder.return_value = VEHICLE_FOLDER
     _commit(client, message="no subsystem")
 
     listed = client.get("/api/cdx-commits", params={"subsystem": "battery"}).json()

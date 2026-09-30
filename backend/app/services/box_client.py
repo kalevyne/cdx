@@ -16,19 +16,29 @@ from box_sdk_gen import (
 )
 
 from app.config import Settings, get_settings
-from app.schemas.box import BoxFileMetadata, BoxFolderListing, BoxFolderRef, BoxItem
+from app.schemas.box import BoxFileMetadata, BoxFolder, BoxFolderListing, BoxFolderRef, BoxItem
 from app.services.box_token_storage import make_backend_token_storage
 
 T = TypeVar("T")
 
 # Box's maximum page size for folder listings.
 _FOLDER_PAGE_LIMIT = 1000
-_FILE_FIELDS = ["id", "name", "size", "parent", "modified_at", "sha1", "file_version"]
+_FOLDER_FIELDS = ["id", "name", "path_collection"]
+_FILE_FIELDS = [
+    "id",
+    "name",
+    "size",
+    "parent",
+    "path_collection",
+    "modified_at",
+    "sha1",
+    "file_version",
+]
 
 
 class BoxNotFoundError(Exception):
-    """Raised when a requested Box file or folder doesn't exist, or isn't visible
-    to the Box account CDX is authorized as."""
+    """Raised when a requested Box file or folder doesn't exist, isn't visible to
+    the Box account CDX is authorized as, or is outside the Dashboard root."""
 
 
 class BoxServiceError(Exception):
@@ -48,7 +58,7 @@ def make_box_oauth(settings: Settings, token_storage: TokenStorage) -> BoxOAuth:
     )
 
 
-def call_box(fn: Callable[[], T], resource_id: str) -> T:
+def _call_box(fn: Callable[[], T], resource_id: str) -> T:
     """Run a Box SDK call, translating Box API errors into CDX's exceptions."""
     try:
         return fn()
@@ -61,19 +71,33 @@ def call_box(fn: Callable[[], T], resource_id: str) -> T:
 class BoxService:
     """Thin wrapper around box-sdk-gen, authenticated via OAuth 2.0 (User
     Authentication) as whichever Box account completed the one-time authorization
-    in `backend/scripts/box_oauth_setup.py` — that account's own Box permissions
-    determine what CDX can see. See backend/README.md for setup. Tokens persist
-    per `settings.box_token_storage` and refresh automatically."""
+    in `backend/scripts/box_oauth_setup.py`. See backend/README.md for setup.
+    Tokens persist per `settings.box_token_storage` and refresh automatically.
+
+    Scope: that Box account can usually see far more than the dashboard tree
+    (docs/DECISIONS.md #10/#11), so every method that looks an item up by ID
+    raises BoxNotFoundError for anything outside BOX_DASHBOARD_ROOT_FOLDER_ID.
+    `upload_file`/`ensure_folder` take a folder the caller already resolved
+    through `get_folder`."""
 
     def __init__(self, settings: Settings) -> None:
         auth = make_box_oauth(settings, make_backend_token_storage(settings))
         self._client = BoxClient(auth=auth)
+        self._settings = settings
+
+    def get_folder(self, folder_id: str) -> BoxFolder:
+        folder = _call_box(
+            lambda: self._client.folders.get_folder_by_id(folder_id, fields=_FOLDER_FIELDS),
+            folder_id,
+        )
+        is_root = folder.id == self._settings.require_dashboard_root_folder_id()
+        return BoxFolder(
+            id=folder.id, name=folder.name, path=[] if is_root else self._dashboard_path(folder)
+        )
 
     def list_folder(self, folder_id: str) -> BoxFolderListing:
-        folder = call_box(lambda: self._client.folders.get_folder_by_id(folder_id), folder_id)
-        return BoxFolderListing(
-            folder_id=folder_id, folder_name=folder.name, items=self._list_items(folder_id)
-        )
+        folder = self.get_folder(folder_id)
+        return BoxFolderListing(**folder.model_dump(), items=self._list_items(folder_id))
 
     def ensure_folder(self, parent_id: str, name: str) -> str:
         """Return the ID of the subfolder `name` under `parent_id`, creating it if
@@ -81,35 +105,28 @@ class BoxService:
         for item in self._list_items(parent_id):
             if item.type == "folder" and item.name == name:
                 return item.id
-        created = call_box(
+        created = _call_box(
             lambda: self._client.folders.create_folder(name, CreateFolderParent(id=parent_id)),
             parent_id,
         )
         return created.id
 
-    def get_folder_path(self, folder_id: str) -> list[BoxFolderRef]:
-        """The folder's ancestors from the Box root down, ending with the folder itself."""
-        folder = call_box(
-            lambda: self._client.folders.get_folder_by_id(
-                folder_id, fields=["id", "name", "path_collection"]
-            ),
-            folder_id,
-        )
-        ancestors = [BoxFolderRef(id=f.id, name=f.name) for f in folder.path_collection.entries]
-        return [*ancestors, BoxFolderRef(id=folder.id, name=folder.name)]
-
     def get_file_metadata(self, file_id: str) -> BoxFileMetadata:
-        file = call_box(
+        file = _call_box(
             lambda: self._client.files.get_file_by_id(file_id, fields=_FILE_FIELDS), file_id
         )
         return self._to_file_metadata(file)
 
-    def download_file(self, file_id: str, version_id: str | None = None) -> bytes:
-        """The file's current content, or the content of a specific earlier version."""
-        stream = call_box(
+    def download_file(
+        self, file_id: str, version_id: str | None = None
+    ) -> tuple[BoxFileMetadata, bytes]:
+        """The file's metadata plus its current content, or the content of a
+        specific earlier version."""
+        metadata = self.get_file_metadata(file_id)
+        stream = _call_box(
             lambda: self._client.downloads.download_file(file_id, version=version_id), file_id
         )
-        return stream.read()
+        return metadata, stream.read()
 
     def upload_file(self, folder_id: str, filename: str, content: bytes) -> BoxFileMetadata:
         """Upload `content` as `filename` into the folder. If a file with that name
@@ -120,7 +137,7 @@ class BoxService:
             None,
         )
         if existing:
-            result = call_box(
+            result = _call_box(
                 lambda: self._client.uploads.upload_file_version(
                     existing.id,
                     UploadFileVersionAttributes(name=filename),
@@ -133,19 +150,16 @@ class BoxService:
             attributes = UploadFileAttributes(
                 name=filename, parent=UploadFileAttributesParentField(id=folder_id)
             )
-            result = call_box(
+            result = _call_box(
                 lambda: self._client.uploads.upload_file(
                     attributes, BytesIO(content), fields=_FILE_FIELDS
                 ),
                 folder_id,
             )
-        metadata = self._to_file_metadata(result.entries[0])
-        # Box's response reflects the parent it actually stored the file under;
-        # pin it to the folder_id we uploaded to rather than trust the response shape.
-        return metadata.model_copy(update={"parent_id": folder_id})
+        return self._to_file_metadata(result.entries[0])
 
     def _list_items(self, folder_id: str) -> list[BoxItem]:
-        result = call_box(
+        result = _call_box(
             lambda: self._client.folders.get_folder_items(
                 folder_id,
                 fields=["id", "type", "name", "size", "modified_at"],
@@ -164,13 +178,24 @@ class BoxService:
             for entry in result.entries
         ]
 
-    @staticmethod
-    def _to_file_metadata(file) -> BoxFileMetadata:
+    def _dashboard_path(self, item) -> list[BoxFolderRef]:
+        """The item's ancestors from the Dashboard root down, or BoxNotFoundError
+        if the item isn't inside the Dashboard root."""
+        root_id = self._settings.require_dashboard_root_folder_id()
+        ancestors = [BoxFolderRef(id=f.id, name=f.name) for f in item.path_collection.entries]
+        ancestor_ids = [f.id for f in ancestors]
+        if root_id not in ancestor_ids:
+            raise BoxNotFoundError(f"Box resource not found: {item.id}")
+        return ancestors[ancestor_ids.index(root_id) :]
+
+    def _to_file_metadata(self, file) -> BoxFileMetadata:
+        path = self._dashboard_path(file)
         return BoxFileMetadata(
             id=file.id,
             name=file.name,
             size=file.size,
-            parent_id=file.parent.id if getattr(file, "parent", None) else None,
+            parent_id=path[-1].id,
+            path=path,
             modified_at=getattr(file, "modified_at", None),
             # box-sdk-gen maps the JSON `sha1` field to the Python attribute `sha_1`.
             box_sha1=getattr(file, "sha_1", None),

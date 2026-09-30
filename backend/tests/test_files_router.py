@@ -1,29 +1,32 @@
-from app.schemas.box import BoxFileMetadata, BoxFolderListing, BoxItem
+from app.schemas.box import BoxFileMetadata, BoxFolderListing, BoxFolderRef, BoxItem
 from app.services.box_client import BoxNotFoundError, BoxServiceError
+from tests.conftest import DASHBOARD_ROOT_ID
 
 
 def test_get_folder_returns_listing(client, box_service_mock):
     box_service_mock.list_folder.return_value = BoxFolderListing(
-        folder_id="42",
-        folder_name="Dashboard",
+        id="42",
+        name="Zephyr",
+        path=[BoxFolderRef(id=DASHBOARD_ROOT_ID, name="CDX")],
         items=[BoxItem(id="1", type="file", name="a.txt")],
     )
 
     response = client.get("/api/folders/42")
 
     assert response.status_code == 200
-    assert response.json()["folder_name"] == "Dashboard"
+    assert response.json()["name"] == "Zephyr"
+    assert response.json()["path"] == [{"id": DASHBOARD_ROOT_ID, "name": "CDX"}]
 
 
 def test_get_dashboard_root_folder_uses_configured_id(client, box_service_mock):
     box_service_mock.list_folder.return_value = BoxFolderListing(
-        folder_id="0", folder_name="Dashboard Root", items=[]
+        id=DASHBOARD_ROOT_ID, name="CDX", items=[]
     )
 
     response = client.get("/api/folders")
 
     assert response.status_code == 200
-    box_service_mock.list_folder.assert_called_once_with("0")
+    box_service_mock.list_folder.assert_called_once_with(DASHBOARD_ROOT_ID)
 
 
 def test_unconfigured_dashboard_root_returns_503(client, monkeypatch):
@@ -54,10 +57,10 @@ def test_box_failure_returns_502(client, box_service_mock):
 
 
 def test_download_file_returns_bytes_with_filename(client, box_service_mock):
-    box_service_mock.get_file_metadata.return_value = BoxFileMetadata(
-        id="9", name="notes.md", size=5, parent_id="42"
+    box_service_mock.download_file.return_value = (
+        BoxFileMetadata(id="9", name="notes.md", size=5, parent_id="42"),
+        b"hello",
     )
-    box_service_mock.download_file.return_value = b"hello"
 
     response = client.get("/api/files/9/content")
 

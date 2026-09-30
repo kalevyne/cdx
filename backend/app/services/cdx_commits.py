@@ -57,8 +57,8 @@ def create_cdx_commit(
         if commit_file:
             _validate_file(commit_file)
 
-    path = box.get_folder_path(folder_id)
-    subsystem, subsystem_folder = _find_subsystem(path)
+    folder = box.get_folder(folder_id)
+    subsystem, subsystem_folder = _find_subsystem([*folder.path, folder])
 
     uploaded = box.upload_file(folder_id, file.name, file.content)
     review = None

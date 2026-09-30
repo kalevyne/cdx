@@ -12,7 +12,7 @@ from app.services.box_login import (
     BoxLoginService,
     get_box_login_service,
 )
-from tests.conftest import TEST_USER, box_api_error
+from tests.conftest import DASHBOARD_ROOT_ID, TEST_USER, box_api_error
 
 
 @pytest.fixture
@@ -100,7 +100,9 @@ def test_complete_login_checks_dashboard_root_access(box_user_client):
     user = BoxLoginService(get_settings()).complete_login("code")
 
     assert user == TEST_USER
-    box_user_client.folders.get_folder_by_id.assert_called_once_with("0", fields=["id"])
+    box_user_client.folders.get_folder_by_id.assert_called_once_with(
+        DASHBOARD_ROOT_ID, fields=["id"]
+    )
 
 
 @pytest.mark.parametrize("status_code", [403, 404])
