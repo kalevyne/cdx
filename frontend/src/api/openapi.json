@@ -944,6 +944,7 @@
     },
     "/api/files/{file_id}/content": {
       "get": {
+        "description": "The file's current content, or a specific version (e.g. the one a CDX commit recorded).",
         "operationId": "download_file_api_files__file_id__content_get",
         "parameters": [
           {
@@ -953,6 +954,22 @@
             "schema": {
               "title": "File Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "version_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Version Id"
             }
           }
         ],

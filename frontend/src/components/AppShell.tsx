@@ -1,4 +1,4 @@
-import { FolderTree, LogOut, Upload } from 'lucide-react'
+import { FolderTree, History, LogOut, Upload } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router'
 
 import { useLogout } from '@/api/queries'
@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 const NAV_ITEMS = [
   { to: '/browse', label: 'Browse', icon: FolderTree },
   { to: '/commit', label: 'Commit', icon: Upload },
+  { to: '/history', label: 'History', icon: History },
 ]
 
 export function AppShell({ user }: { user: SessionUser }) {

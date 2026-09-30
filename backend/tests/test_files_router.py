@@ -71,3 +71,15 @@ def test_download_file_returns_bytes_with_filename(client, box_service_mock):
 
 def test_box_routes_require_login(anonymous_client):
     assert anonymous_client.get("/api/folders/42").status_code == 401
+
+
+def test_download_specific_version(client, box_service_mock):
+    box_service_mock.download_file.return_value = (
+        BoxFileMetadata(id="9", name="notes.md", size=5, parent_id="42"),
+        b"old",
+    )
+
+    response = client.get("/api/files/9/content", params={"version_id": "v1"})
+
+    assert response.content == b"old"
+    box_service_mock.download_file.assert_called_once_with("9", "v1")

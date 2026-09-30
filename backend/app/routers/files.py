@@ -31,8 +31,11 @@ def get_file_metadata(file_id: str, box: BoxService = Depends(get_box_service)) 
 
 
 @router.get("/files/{file_id}/content")
-def download_file(file_id: str, box: BoxService = Depends(get_box_service)) -> Response:
-    metadata, content = box.download_file(file_id)
+def download_file(
+    file_id: str, version_id: str | None = None, box: BoxService = Depends(get_box_service)
+) -> Response:
+    """The file's current content, or a specific version (e.g. the one a CDX commit recorded)."""
+    metadata, content = box.download_file(file_id, version_id)
     safe_name = metadata.name.replace('"', "")
     return Response(
         content=content,

@@ -9,13 +9,17 @@ import {
 } from '@tanstack/react-query'
 
 import { ApiError, apiFetch } from './client'
-import type { BoxFolderListing, CdxCommit, SessionUser } from './types'
+import type { BoxFolderListing, CdxCommit, CdxCommitVerification, SessionUser } from './types'
+
+// How often to re-check a commit whose XRPL anchoring is still in flight.
+const ANCHOR_POLL_MS = 3_000
 
 export const queryKeys = {
   me: ['me'] as const,
   folder: (folderId?: string) => ['folder', folderId ?? 'root'] as const,
   cdxCommits: (filters: CdxCommitFilters = {}) => ['cdx-commits', filters] as const,
   cdxCommit: (id: number) => ['cdx-commit', id] as const,
+  verification: (id: number) => ['cdx-commit', id, 'verification'] as const,
 }
 
 export function createQueryClient(): QueryClient {
@@ -91,6 +95,40 @@ export function useCdxCommits(filters: CdxCommitFilters = {}) {
       if (filters.limit) params.set('limit', String(filters.limit))
       return apiFetch<CdxCommit[]>(`/api/cdx-commits?${params}`)
     },
+    refetchInterval: (query) =>
+      query.state.data?.some((c) => c.anchor_status === 'pending') ? ANCHOR_POLL_MS : false,
+  })
+}
+
+/** One CDX commit; polls while its anchoring is pending so the UI updates live. */
+export function useCdxCommit(id: number) {
+  return useQuery({
+    queryKey: queryKeys.cdxCommit(id),
+    queryFn: () => apiFetch<CdxCommit>(`/api/cdx-commits/${id}`),
+    refetchInterval: (query) =>
+      query.state.data?.anchor_status === 'pending' ? ANCHOR_POLL_MS : false,
+  })
+}
+
+export function useRetryAnchoring(id: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => apiFetch<CdxCommit>(`/api/cdx-commits/${id}/anchor`, { method: 'POST' }),
+    onSuccess: (cdxCommit) => {
+      queryClient.setQueryData(queryKeys.cdxCommit(id), cdxCommit)
+      queryClient.invalidateQueries({ queryKey: ['cdx-commits'] })
+    },
+  })
+}
+
+/** Re-check a commit against Box and the ledger. Runs only when `enabled`
+ * (i.e. after the user asks), since it downloads the file. */
+export function useVerification(id: number, enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.verification(id),
+    queryFn: () => apiFetch<CdxCommitVerification>(`/api/cdx-commits/${id}/verification`),
+    enabled,
+    staleTime: 0,
   })
 }
 

@@ -2,13 +2,15 @@ import { AlertTriangle, CheckCircle2, Upload } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 
-import { useCreateCdxCommit, useFolder } from '@/api/queries'
+import { useCdxCommit, useCreateCdxCommit, useFolder } from '@/api/queries'
 import { type CdxCommit, MAX_UPLOAD_BYTES } from '@/api/types'
+import { AnchorStatusBadge } from '@/components/AnchorStatusBadge'
 import { PageHeader } from '@/components/AppShell'
 import { FileDrop } from '@/components/FileDrop'
 import { FolderBreadcrumb } from '@/components/FolderBreadcrumb'
 import { FolderTree } from '@/components/FolderTree'
 import { HashText } from '@/components/HashText'
+import { LedgerLink } from '@/components/LedgerLink'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -154,29 +156,35 @@ function CommitSuccess({
   cdxCommit: CdxCommit
   onCommitAnother: () => void
 }) {
+  // Live anchoring status: the commit is saved before it reaches the ledger.
+  const live = useCdxCommit(cdxCommit.id).data ?? cdxCommit
+
   return (
     <Card className="mx-auto max-w-xl">
       <CardHeader className="items-center text-center">
         <CheckCircle2 className="size-10 text-emerald-600" aria-hidden />
-        <CardTitle className="text-xl">Committed {cdxCommit.file_name}</CardTitle>
+        <CardTitle className="text-xl">Committed {live.file_name}</CardTitle>
         <CardDescription>
-          It's in Box, and its fingerprint is recorded. Anyone can re-hash the file later and
-          compare.
+          It's in Box, and its fingerprint is on its way to the public XRP Ledger.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
           <span className="text-xs font-medium text-muted-foreground uppercase">SHA-256</span>
-          <HashText hash={cdxCommit.sha256_hash} />
+          <HashText hash={live.sha256_hash} />
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">XRP Ledger:</span>
+          <AnchorStatusBadge status={live.anchor_status} />
+          <LedgerLink cdxCommit={live} />
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button onClick={onCommitAnother}>Commit another file</Button>
-          <Link
-            to={`/browse?folder=${cdxCommit.box_folder_id}`}
-            className={buttonVariants({ variant: 'outline' })}
-          >
-            Open folder
+          <Link to={`/commits/${live.id}`} className={buttonVariants()}>
+            View proof
           </Link>
+          <Button variant="outline" onClick={onCommitAnother}>
+            Commit another file
+          </Button>
         </div>
       </CardContent>
     </Card>

@@ -10,6 +10,9 @@ export type BoxItem = Schemas['BoxItem']
 export type BoxFolderRef = Schemas['BoxFolderRef']
 export type BoxFolderListing = Schemas['BoxFolderListing']
 export type CdxCommit = Schemas['CdxCommitRead']
+export type AnchorStatus = Schemas['AnchorStatus']
+export type CdxCommitVerification = Schemas['CdxCommitVerification']
+export type VerificationCheck = Schemas['VerificationCheck']
 
 // Mirrors MAX_UPLOAD_BYTES in backend/app/services/cdx_commits.py (Box's
 // single-upload limit), so oversized files are caught before uploading.

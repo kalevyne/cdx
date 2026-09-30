@@ -4,8 +4,17 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
-/** A SHA-256 hash in monospace with a copy button. */
-export function HashText({ hash, className }: { hash: string; className?: string }) {
+/** A SHA-256 hash in monospace with a copy button. Truncated to one line
+ * unless `wrap` is set (for places where people compare it by eye). */
+export function HashText({
+  hash,
+  wrap = false,
+  className,
+}: {
+  hash: string
+  wrap?: boolean
+  className?: string
+}) {
   const [copied, setCopied] = useState(false)
 
   async function copy() {
@@ -16,7 +25,13 @@ export function HashText({ hash, className }: { hash: string; className?: string
 
   return (
     <span className={cn('inline-flex max-w-full items-center gap-1', className)}>
-      <code className="truncate rounded bg-muted px-1.5 py-0.5 font-mono text-xs" title={hash}>
+      <code
+        className={cn(
+          'rounded bg-muted px-1.5 py-0.5 font-mono text-xs',
+          wrap ? 'break-all' : 'truncate',
+        )}
+        title={hash}
+      >
         {hash}
       </code>
       <Button variant="ghost" size="icon-xs" onClick={copy} aria-label="Copy hash">

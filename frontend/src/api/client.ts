@@ -24,8 +24,10 @@ export function startLogin(): void {
   window.location.assign('/api/auth/login')
 }
 
-export function fileDownloadUrl(fileId: string): string {
-  return `/api/files/${encodeURIComponent(fileId)}/content`
+/** Download URL for a Box file — a specific version when `versionId` is given. */
+export function fileDownloadUrl(fileId: string, versionId?: string | null): string {
+  const url = `/api/files/${encodeURIComponent(fileId)}/content`
+  return versionId ? `${url}?version_id=${encodeURIComponent(versionId)}` : url
 }
 
 // FastAPI errors are {"detail": "..."} or, for validation errors,

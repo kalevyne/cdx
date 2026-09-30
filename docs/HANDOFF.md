@@ -94,10 +94,21 @@ action · `[ ]` not started · `[!]` blocked (see "Blocked / fix later").
   (frontend/README.md "API types"); a backend test catches staleness.
 
 ### Checkpoint 4 — XRPL anchoring live + commit history
-- [ ] XRPL client wrapper (Testnet `Payment` + `Memo`).
-- [ ] Async anchoring in the commit flow.
-- [ ] Verification endpoint + badge.
-- [ ] Commit history view with explorer links.
+- [~] XRPL client wrapper (`app/services/xrpl_client.py`): 1-drop Testnet
+  `Payment` to `XRPL_ANCHOR_DESTINATION` with text memos (DECISIONS.md #12).
+  Tested with mocks only. **Needs live check**: set
+  `XRPL_TESTNET_WALLET_SEED` + `XRPL_ANCHOR_DESTINATION` (second faucet
+  account, see backend/.env.example), commit a file, confirm the tx on
+  testnet.xrpl.org shows the memos.
+- [x] Async anchoring: background task after the commit response; status
+  `pending → anchored | failed` (+ error, retry endpoint + button); pending
+  commits swept on startup.
+- [x] Verification: `GET /api/cdx-commits/{id}/verification` re-hashes the
+  committed Box version and re-reads the ledger memo; the commit page's
+  "Proof of record" panel shows file → SHA-256 → ledger with a "Verify now"
+  button that marks each step matched/mismatched.
+- [x] Commit history (`/history`) and commit detail (`/commits/:id`) views
+  with live anchoring status and XRPL explorer links.
 
 ### Checkpoint 5 — Dashboard + subsystem cards + sponsor view
 - [ ] Subsystem metadata + status aggregation.
@@ -127,11 +138,11 @@ Each entry: what's blocked, why, and the concrete next step.
    directly (`VITE_API_BASE_URL`), add CORS for `FRONTEND_URL` with
    credentials, and make the session cookie `SameSite=None`. Not built
    speculatively.
-7. **shadcn registry blocked in the sandbox** — `src/components/ui/` primitives
+6. **shadcn registry blocked in the sandbox** — `src/components/ui/` primitives
    were hand-written in shadcn's style. Swap for CLI-generated versions
    (`npx shadcn@latest add card input textarea label badge skeleton alert`)
    when convenient; APIs are the same.
-6. **Files over 50 MB** are rejected (Box's single-upload limit). CAD files
+7. **Files over 50 MB** are rejected (Box's single-upload limit). CAD files
    can exceed that; supporting them means Box's chunked upload API in
    `BoxService.upload_file`.
 
@@ -141,3 +152,4 @@ Each entry: what's blocked, why, and the concrete next step.
   scaffold, confirmed 11 backend tests + frontend build pass as the baseline.
   Checkpoint 1 code done (30 backend tests). Checkpoint 2 code done (42).
   Checkpoint 3 done (45 backend tests; frontend build + lint clean).
+  Checkpoint 4 done (60 backend tests).

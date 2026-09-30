@@ -168,7 +168,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Download File */
+        /**
+         * Download File
+         * @description The file's current content, or a specific version (e.g. the one a CDX commit recorded).
+         */
         get: operations["download_file_api_files__file_id__content_get"];
         put?: never;
         post?: never;
@@ -703,7 +706,9 @@ export interface operations {
     };
     download_file_api_files__file_id__content_get: {
         parameters: {
-            query?: never;
+            query?: {
+                version_id?: string | null;
+            };
             header?: never;
             path: {
                 file_id: string;
