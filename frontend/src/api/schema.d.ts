@@ -107,6 +107,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cdx-commits/{cdx_commit_id}/anchor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry Anchoring
+         * @description Queue another anchoring attempt for a commit that isn't anchored yet.
+         */
+        post: operations["retry_anchoring_api_cdx_commits__cdx_commit_id__anchor_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cdx-commits/{cdx_commit_id}/verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Verify Cdx Commit */
+        get: operations["verify_cdx_commit_api_cdx_commits__cdx_commit_id__verification_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/files/{file_id}": {
         parameters: {
             query?: never;
@@ -196,6 +233,11 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AnchorStatus
+         * @enum {string}
+         */
+        AnchorStatus: "pending" | "anchored" | "failed";
         /** Body_create_cdx_commit_api_cdx_commits_post */
         Body_create_cdx_commit_api_cdx_commits_post: {
             /** Design Review */
@@ -271,6 +313,9 @@ export interface components {
         };
         /** CdxCommitRead */
         CdxCommitRead: {
+            /** Anchor Error */
+            anchor_error: string | null;
+            anchor_status: components["schemas"]["AnchorStatus"];
             /** Anchored At */
             anchored_at: string | null;
             /** Author Name */
@@ -302,11 +347,33 @@ export interface components {
             sha256_hash: string;
             /** Subsystem */
             subsystem: string | null;
+            /** Xrpl Explorer Url */
+            readonly xrpl_explorer_url: string | null;
             /** Xrpl Ledger Index */
             xrpl_ledger_index: number | null;
+            /** Xrpl Network */
+            xrpl_network: string | null;
             /** Xrpl Tx Hash */
             xrpl_tx_hash: string | null;
         };
+        /**
+         * CdxCommitVerification
+         * @description Independent re-checks of a CDX commit's recorded SHA-256: against the
+         *     file's bytes in Box, and against the memo on the public ledger.
+         */
+        CdxCommitVerification: {
+            box: components["schemas"]["VerificationCheck"];
+            /** Expected Sha256 */
+            expected_sha256: string;
+            ledger: components["schemas"]["VerificationCheck"];
+            /** Verified */
+            verified: boolean;
+        };
+        /**
+         * CheckStatus
+         * @enum {string}
+         */
+        CheckStatus: "match" | "mismatch" | "unavailable";
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -337,6 +404,14 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /** VerificationCheck */
+        VerificationCheck: {
+            /** Detail */
+            detail: string;
+            /** Observed Sha256 */
+            observed_sha256?: string | null;
+            status: components["schemas"]["CheckStatus"];
         };
     };
     responses: never;
@@ -520,6 +595,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CdxCommitRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_anchoring_api_cdx_commits__cdx_commit_id__anchor_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cdx_commit_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CdxCommitRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_cdx_commit_api_cdx_commits__cdx_commit_id__verification_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cdx_commit_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CdxCommitVerification"];
                 };
             };
             /** @description Validation Error */

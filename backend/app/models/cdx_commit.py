@@ -1,9 +1,16 @@
 from datetime import datetime
+from enum import StrEnum
 
-from sqlalchemy import Integer, String
+from sqlalchemy import Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base, UTCDateTime, utcnow
+
+
+class AnchorStatus(StrEnum):
+    PENDING = "pending"  # Waiting to be anchored (or XRPL isn't configured yet).
+    ANCHORED = "anchored"  # Hash is in a validated XRPL transaction.
+    FAILED = "failed"  # The last attempt failed; see anchor_error. Retryable.
 
 
 class CdxCommit(Base):
@@ -32,7 +39,13 @@ class CdxCommit(Base):
     author_name: Mapped[str] = mapped_column(String, nullable=False)
     message: Mapped[str] = mapped_column(String, nullable=False)
 
-    # Filled in once XRPL anchoring confirms (Phase 3).
+    # XRPL anchoring (app/services/anchoring.py). The xrpl_* fields are filled
+    # in once the anchoring transaction is validated.
+    anchor_status: Mapped[AnchorStatus] = mapped_column(
+        String, nullable=False, default=AnchorStatus.PENDING, server_default="pending", index=True
+    )
+    anchor_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    xrpl_network: Mapped[str | None] = mapped_column(String, nullable=True)
     xrpl_tx_hash: Mapped[str | None] = mapped_column(String, nullable=True)
     xrpl_ledger_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
 

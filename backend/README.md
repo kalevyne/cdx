@@ -135,6 +135,29 @@ nearest ancestor named after an entry in `app/subsystems.py`), and the design
 review goes into that subsystem's `Design Reviews` folder. Files are limited
 to 50 MB (Box's single-upload limit).
 
+## 7. XRPL anchoring
+
+Set `XRPL_TESTNET_WALLET_SEED` and `XRPL_ANCHOR_DESTINATION` (see
+`.env.example`). After each CDX commit is saved, a background task submits a
+1-drop Testnet `Payment` whose memos carry the commit's data, then records the
+transaction hash and ledger index on the row:
+
+| MemoType                   | MemoData                          |
+|----------------------------|-----------------------------------|
+| `cdx/commit-id`            | the CDX commit's ID               |
+| `cdx/sha256`               | SHA-256 of the committed file     |
+| `cdx/design-review-sha256` | SHA-256 of the design review, if any |
+
+Both are stored as hex-encoded UTF-8 text, so explorers show them readably.
+`anchor_status` is `pending` → `anchored`, or `failed` with `anchor_error`
+(retry with `POST /api/cdx-commits/{id}/anchor`). Commits left `pending` —
+because XRPL wasn't configured yet, or the server restarted mid-anchor — are
+anchored automatically on the next startup.
+
+`GET /api/cdx-commits/{id}/verification` re-downloads the committed version
+from Box and re-reads the memo from the ledger, and reports whether both
+still match the recorded hash.
+
 ## Deploying to staging (Render)
 
 `render.yaml` at the repo root is a Render Blueprint for both services plus a
@@ -169,6 +192,8 @@ Postgres database. After the first deploy:
   the backend's own Box token.
 - `app/services/hashing.py` — SHA-256 of committed file bytes.
 - `app/services/cdx_commits.py` — creating/reading CDX commits.
+- `app/services/xrpl_client.py` — submit/read XRPL memo transactions.
+- `app/services/anchoring.py` — anchoring CDX commits + verification.
 - `app/routers/` — thin FastAPI routes over the services.
 - `app/models/` — the `cdx_commits` and `box_tokens` tables.
 - `migrations/` — Alembic migrations for every table.
@@ -186,8 +211,8 @@ ruff check .
 ruff format .
 ```
 
-Box API calls are mocked in tests — no live Box account is needed to run the
-suite. Each test gets its own SQLite file, migrated the same way production is.
+Box and XRPL calls are faked in tests (`tests/conftest.py`) — no live Box
+account or ledger is needed to run the suite. Each test gets its own SQLite file, migrated the same way production is.
 
 ## Database migrations
 
@@ -217,3 +242,5 @@ the migrations disagree, so a forgotten migration shows up in CI.
 | POST   | `/api/cdx-commits`               | yes  | Commit a file (multipart, see step 6)     |
 | GET    | `/api/cdx-commits`               | yes  | Recent CDX commits (`?subsystem=&limit=`) |
 | GET    | `/api/cdx-commits/{id}`          | yes  | One CDX commit                            |
+| POST   | `/api/cdx-commits/{id}/anchor`   | yes  | Retry anchoring a pending/failed commit   |
+| GET    | `/api/cdx-commits/{id}/verification` | yes | Re-check hash against Box + ledger    |

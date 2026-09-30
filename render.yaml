@@ -55,6 +55,9 @@ services:
         value: testnet
       - key: XRPL_TESTNET_WALLET_SEED
         sync: false
+      # A second funded Testnet address; see backend/.env.example.
+      - key: XRPL_ANCHOR_DESTINATION
+        sync: false
 
   - name: cdx-frontend
     type: web

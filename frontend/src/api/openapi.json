@@ -1,6 +1,15 @@
 {
   "components": {
     "schemas": {
+      "AnchorStatus": {
+        "enum": [
+          "pending",
+          "anchored",
+          "failed"
+        ],
+        "title": "AnchorStatus",
+        "type": "string"
+      },
       "Body_create_cdx_commit_api_cdx_commits_post": {
         "properties": {
           "design_review": {
@@ -218,6 +227,20 @@
       },
       "CdxCommitRead": {
         "properties": {
+          "anchor_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anchor Error"
+          },
+          "anchor_status": {
+            "$ref": "#/components/schemas/AnchorStatus"
+          },
           "anchored_at": {
             "anyOf": [
               {
@@ -311,6 +334,18 @@
             ],
             "title": "Subsystem"
           },
+          "xrpl_explorer_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "readOnly": true,
+            "title": "Xrpl Explorer Url"
+          },
           "xrpl_ledger_index": {
             "anyOf": [
               {
@@ -321,6 +356,17 @@
               }
             ],
             "title": "Xrpl Ledger Index"
+          },
+          "xrpl_network": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Xrpl Network"
           },
           "xrpl_tx_hash": {
             "anyOf": [
@@ -347,13 +393,53 @@
           "subsystem",
           "author_name",
           "message",
+          "anchor_status",
+          "anchor_error",
+          "xrpl_network",
           "xrpl_tx_hash",
           "xrpl_ledger_index",
           "created_at",
-          "anchored_at"
+          "anchored_at",
+          "xrpl_explorer_url"
         ],
         "title": "CdxCommitRead",
         "type": "object"
+      },
+      "CdxCommitVerification": {
+        "description": "Independent re-checks of a CDX commit's recorded SHA-256: against the\nfile's bytes in Box, and against the memo on the public ledger.",
+        "properties": {
+          "box": {
+            "$ref": "#/components/schemas/VerificationCheck"
+          },
+          "expected_sha256": {
+            "title": "Expected Sha256",
+            "type": "string"
+          },
+          "ledger": {
+            "$ref": "#/components/schemas/VerificationCheck"
+          },
+          "verified": {
+            "title": "Verified",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "expected_sha256",
+          "box",
+          "ledger",
+          "verified"
+        ],
+        "title": "CdxCommitVerification",
+        "type": "object"
+      },
+      "CheckStatus": {
+        "enum": [
+          "match",
+          "mismatch",
+          "unavailable"
+        ],
+        "title": "CheckStatus",
+        "type": "string"
       },
       "HTTPValidationError": {
         "properties": {
@@ -430,6 +516,34 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "VerificationCheck": {
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "observed_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed Sha256"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CheckStatus"
+          }
+        },
+        "required": [
+          "status",
+          "detail"
+        ],
+        "title": "VerificationCheck",
         "type": "object"
       }
     }
@@ -696,6 +810,91 @@
           }
         },
         "summary": "Get Cdx Commit",
+        "tags": [
+          "cdx-commits"
+        ]
+      }
+    },
+    "/api/cdx-commits/{cdx_commit_id}/anchor": {
+      "post": {
+        "description": "Queue another anchoring attempt for a commit that isn't anchored yet.",
+        "operationId": "retry_anchoring_api_cdx_commits__cdx_commit_id__anchor_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cdx_commit_id",
+            "required": true,
+            "schema": {
+              "title": "Cdx Commit Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CdxCommitRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retry Anchoring",
+        "tags": [
+          "cdx-commits"
+        ]
+      }
+    },
+    "/api/cdx-commits/{cdx_commit_id}/verification": {
+      "get": {
+        "operationId": "verify_cdx_commit_api_cdx_commits__cdx_commit_id__verification_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cdx_commit_id",
+            "required": true,
+            "schema": {
+              "title": "Cdx Commit Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CdxCommitVerification"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify Cdx Commit",
         "tags": [
           "cdx-commits"
         ]

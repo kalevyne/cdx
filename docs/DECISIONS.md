@@ -127,3 +127,13 @@ Chronological record of significant decisions for CDX, including what was consid
 **Trade-off accepted**: Within the dashboard tree, a logged-in engineer can see anything the backend's account can, not just what their own Box account can. Revisit if subteams ever need folders hidden from each other.
 
 **Status**: Active (2026-09-30).
+
+---
+
+## 12. Anchor transaction details: 1-drop Payment to a second project account, text memos
+
+**Decision**: Implementing #9's provisional `Payment` choice, each CDX commit is anchored by a 1-drop Testnet `Payment` from the project wallet to a second project-controlled Testnet account (`XRPL_ANCHOR_DESTINATION`), carrying `cdx/commit-id`, `cdx/sha256` and (if present) `cdx/design-review-sha256` memos as hex-encoded UTF-8 text. Anchoring runs in a background task after the commit is saved; the network is stored per commit so explorer links and verification stay correct if the network ever changes. `XRPL_NETWORK=mainnet` is refused in code until #6 (custody) is decided.
+
+**Why**: XRPL rejects a `Payment` to the sending account itself (`temREDUNDANT`), so a Payment needs some other destination; a second faucet-funded account costs nothing on Testnet. Text memos (rather than raw 32-byte hash data) make the hash readable as-is on public explorers, which is the demo's "here's the hash on a public ledger" moment. `AccountSet` (#8's other candidate) would avoid the destination entirely and remains the simplest switch if the second account becomes a nuisance.
+
+**Status**: Active for the Testnet demo (2026-09-30). Revisit alongside #6 before mainnet.

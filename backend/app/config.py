@@ -34,6 +34,14 @@ class Settings(BaseSettings):
     # Where the login callback sends the browser afterwards.
     frontend_url: str = "http://127.0.0.1:5173"
 
+    # XRPL anchoring (app/services/xrpl_client.py). Testnet only until mainnet
+    # wallet custody is decided (docs/DECISIONS.md #6).
+    xrpl_network: Literal["testnet", "mainnet"] = "testnet"
+    xrpl_testnet_wallet_seed: str | None = None
+    # Anchors are 1-drop Payments (decision #9), and XRPL rejects payments to
+    # yourself, so they go to this funded account (any address CDX controls).
+    xrpl_anchor_destination: str | None = None
+
     @field_validator("database_url")
     @classmethod
     def _use_psycopg_driver(cls, url: str) -> str:

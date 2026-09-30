@@ -13,6 +13,7 @@ from app.services.cdx_commits import (
     FileTooLargeError,
     InvalidCdxCommitError,
 )
+from app.services.xrpl_client import XrplError, XrplNotConfiguredError
 
 # Subclasses resolve to their own entry first (e.g. FileTooLargeError → 413).
 _STATUS_CODES: dict[type[Exception], int] = {
@@ -21,6 +22,8 @@ _STATUS_CODES: dict[type[Exception], int] = {
     CdxCommitNotFoundError: 404,
     InvalidCdxCommitError: 422,
     FileTooLargeError: 413,
+    XrplError: 502,
+    XrplNotConfiguredError: 503,
     ConfigurationError: 503,
 }
 

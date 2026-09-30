@@ -1,3 +1,4 @@
+import threading
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -8,11 +9,17 @@ from app.config import get_settings
 from app.db import run_migrations
 from app.errors import register_error_handlers
 from app.routers import auth, cdx_commits, files
+from app.services.anchoring import anchor_pending_cdx_commits
+from app.services.xrpl_client import get_xrpl_client
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     run_migrations()
+    # Catch up on anchoring in the background so startup isn't held up by XRPL.
+    threading.Thread(
+        target=anchor_pending_cdx_commits, args=(get_xrpl_client(),), daemon=True
+    ).start()
     yield
 
 
