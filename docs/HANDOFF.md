@@ -78,10 +78,20 @@ action · `[ ]` not started · `[!]` blocked (see "Blocked / fix later").
   `*.onrender.com` names are free (else update the 3 "SERVICE URL" lines).
 
 ### Checkpoint 3 — Core loop demoable
-- [ ] Commit form UI.
-- [ ] Folder tree browser.
-- [ ] Box OAuth login UI.
-- [ ] Layout / empty / loading states.
+- [x] Commit form UI (`/commit`): folder picker, drag-and-drop file, message,
+  optional design review, client-side validation, success card with SHA-256.
+- [x] Folder tree browser (`/browse`): lazy tree that auto-expands to the
+  selected folder, breadcrumbs, file downloads. Box access is scoped to the
+  Dashboard root server-side (BoxService), so IDs outside it are 404.
+- [x] Box OAuth login UI: login page with Box button + `login_error` messages;
+  any 401 drops back to it.
+- [x] Layout (app shell, Berkeley-blue theme, mobile nav), empty/loading/error
+  states shared via `components/StateViews.tsx`.
+- [~] **Needs live check**: walk a teammate through login → browse → commit
+  on the deployed app (the checkpoint's own "Check"). Verified here only with
+  a mocked API in headless Chromium at 1280px and 390px widths.
+- Frontend API types are generated from the backend OpenAPI schema
+  (frontend/README.md "API types"); a backend test catches staleness.
 
 ### Checkpoint 4 — XRPL anchoring live + commit history
 - [ ] XRPL client wrapper (Testnet `Payment` + `Memo`).
@@ -117,6 +127,10 @@ Each entry: what's blocked, why, and the concrete next step.
    directly (`VITE_API_BASE_URL`), add CORS for `FRONTEND_URL` with
    credentials, and make the session cookie `SameSite=None`. Not built
    speculatively.
+7. **shadcn registry blocked in the sandbox** — `src/components/ui/` primitives
+   were hand-written in shadcn's style. Swap for CLI-generated versions
+   (`npx shadcn@latest add card input textarea label badge skeleton alert`)
+   when convenient; APIs are the same.
 6. **Files over 50 MB** are rejected (Box's single-upload limit). CAD files
    can exceed that; supporting them means Box's chunked upload API in
    `BoxService.upload_file`.
@@ -126,3 +140,4 @@ Each entry: what's blocked, why, and the concrete next step.
 - 2026-09-30 — Session 1: created this file, rebased branch onto PR #1's
   scaffold, confirmed 11 backend tests + frontend build pass as the baseline.
   Checkpoint 1 code done (30 backend tests). Checkpoint 2 code done (42).
+  Checkpoint 3 done (45 backend tests; frontend build + lint clean).
