@@ -8,7 +8,8 @@ class Settings(BaseSettings):
 
     box_client_id: str
     box_client_secret: str
-    box_enterprise_id: str
+    box_redirect_uri: str = "http://127.0.0.1:8000/api/box/oauth/callback"
+    box_token_storage_path: str = ".box_tokens"
     box_dashboard_root_folder_id: str | None = None
 
     database_url: str = "sqlite:///./cdx.db"

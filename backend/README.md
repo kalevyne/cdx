@@ -7,105 +7,65 @@ Phase 2 (hashing pipeline + commit UI) will start writing to.
 No blockchain code here — see `docs/DECISIONS.md` and the root `README.md` for
 phase sequencing.
 
-## 1. Set up the Box service account (one-time, do this first)
+## 1. Set up Box access (one-time, do this first)
 
-The backend talks to Box as a dedicated **service account**, authenticated with
-Box's Client Credentials Grant (CCG) — this is the "service-account-authenticated"
-client described in `docs/ARCHITECTURE.md`. It's separate from engineers' own Box
-logins; engineer identity/OAuth login is a later concern (Phase 4 area), not needed
-to read/write files today.
+**Current approach: OAuth 2.0 User Authentication, not a service account.**
+CDX originally planned a Client Credentials Grant (CCG) service account (see
+`docs/ARCHITECTURE.md`), but that requires an Enterprise-tier Box account to
+register, and Berkeley IT rejected the request outright over API costs —
+see `docs/DECISIONS.md` #10. OAuth 2.0 Custom Apps don't have that
+restriction: they can be created on a completely free, non-enterprise Box
+account, because an unpublished custom app doesn't need enterprise approval.
 
-Box service accounts don't automatically see your enterprise's existing files —
-they start with their own empty root folder, exactly like a new teammate would. You
-have to explicitly share the CDX Dashboard root folder with the service account's
-email, the same way you'd invite a collaborator in the Box web UI. This is the key
-fact that makes the self-serve path below possible: the app can be registered
-under *any* enterprise, and the resulting service account is just an email address
-that gets invited into a CalSol folder like any other collaborator — regardless of
-which enterprise created it.
+The trade-off: instead of an independent service-account identity, the
+backend acts *as whichever Box account completes the one-time authorization
+below*. Point that at your own Berkeley Box account and CDX inherits
+whatever CalSol folders that account can already see — no separate
+folder-sharing step needed. The real cost is that this ties the backend's
+Box access to one person's account rather than a durable service identity;
+revisit this once Box access isn't blocking anything (ask CalSol/IT again,
+or pursue the nonprofit donation route via TechSoup) — don't let it become
+permanent by default.
 
-There are two paths to get the four values you need (Client ID, Client Secret,
-Enterprise ID, Dashboard folder ID). Try Path A first — it doesn't need anyone's
-help.
-
-### Path A — self-serve, using your own enterprise account (try this first)
-
-If you have your own Enterprise-tier Box account (e.g. via campus IT, a
-different org, or a paid plan — not the free personal tier), you can do this
-entirely yourself:
-
-1. Go to the [Box Developer Console](https://app.box.com/developers/console)
-   logged into **your own** enterprise account (not CalSol's).
-2. **Create Platform App** → **Custom App** → **Server Authentication (Client
-   Credentials Grant)**. Give it a name like `CDX Dashboard`.
+1. Sign up for a free Box account (any email — this does **not** need to be
+   your Berkeley account, and does **not** need to be Enterprise-tier).
+2. Go to the [Box Developer Console](https://app.box.com/developers/console)
+   logged into that free account. **Create Platform App** → **Custom App**
+   → **User Authentication (OAuth 2.0)**. Name it `CDX Dashboard`.
 3. Under **Configuration**:
    - Note the **Client ID** and **Client Secret**.
-   - Under "App + Enterprise Access", note the **Service Account ID** and the
-     service account's email, something like
-     `AutomationUser_123456_xyz@boxdevedition.com`.
-   - Under **Application Scopes**, enable `Read and write all files and folders
-     stored in Box`.
-   - From your own enterprise's Admin Console → **Enterprise Settings**, note
-     your **Enterprise ID**.
-4. Confirm you can actually generate a token. If app creation succeeds but
-   requesting a token errors with something like "not approved for use," your
-   own enterprise restricts custom apps (Admin Console → Apps → Custom App
-   Approval) — you're blocked here, not on CalSol's side. Skip to Path B.
-5. Log into your **own regular CalSol account** in the Box web app, open the
-   Dashboard root folder (see `docs/PROJECT-SUMMARY.md` for the intended
-   structure), and invite the service account's email as an **Editor**
-   collaborator. Editor-level members can normally invite new collaborators, so
-   this may not need anyone else at all — Box will show an "external
-   collaborator" warning since the email is outside CalSol's domain, which is
-   expected, not an error.
-6. If that invite fails because CalSol restricts external collaborators
-   ("Restrict collaboration to within your enterprise" on the folder or
-   enterprise settings), you need someone with Editor+ rights on that specific
-   folder — not full account access — to either send the invite themselves or
-   temporarily allow external collaboration.
-
-If Path A works, you're done without needing the CalSol account owner at all.
-
-### Path B — ask a CalSol admin (fallback if Path A is blocked)
-
-The app is registered under CalSol's own enterprise instead, done by whoever
-administers the `calsol` Box account:
-
-1. Go to the [Box Developer Console](https://app.box.com/developers/console) while
-   logged into the CalSol Box account.
-2. **Create Platform App** → **Custom App** → **Server Authentication (Client
-   Credentials Grant)**. Give it a name like `CDX Dashboard`.
-3. Under **Configuration**:
-   - Note the **Client ID** and **Client Secret**.
-   - Under "App + Enterprise Access", note the **Service Account ID** — the
-     console also shows the service account's email, something like
-     `AutomationUser_123456_xyz@boxdevedition.com`.
-   - Under **Application Scopes**, enable `Read and write all files and folders
-     stored in Box` (Manage Users is not needed — CDX doesn't do user provisioning).
-4. If the CalSol enterprise restricts custom apps (Admin Console → **Apps** →
-   **Custom App Approval**), approve this app's Client ID there — this needs
-   actual **Enterprise Admin/Co-Admin** rights, which is a different, enterprise-
-   wide role from folder-level "Co-owner." If you're the only admin and apps
-   aren't restricted, you can skip this.
-5. In the regular Box web app, create (or pick) the **Dashboard root folder** and
-   **share it** with the service account's email as an **Editor**. This is what
-   actually grants the backend access; the Custom App creation step alone does not.
-6. From CalSol's Admin Console → **Enterprise Settings**, note the **Enterprise
-   ID**.
-
-Either path ends with the same four values: Client ID, Client Secret, Enterprise
-ID, and the Dashboard root folder's ID (visible in its Box URL, e.g.
-`https://calsol.app.box.com/folder/123456789` → `123456789`). The app code
-doesn't care which path produced them.
+   - Under **Redirect URIs**, add `http://127.0.0.1:8000/api/box/oauth/callback`
+     (must exactly match `BOX_REDIRECT_URI` below). Use the literal IP
+     `127.0.0.1`, not `localhost` — Box's redirect URI validation has been
+     observed to silently reject `localhost` (the Configuration page returns
+     a 200 but the value doesn't persist) while accepting `127.0.0.1`.
+   - Under **Application Scopes**, enable at least "Read and write all files
+     and folders stored in Box."
+4. Fill in `.env` (see step 2 below) with the Client ID/Secret, then run:
+   ```bash
+   python -m scripts.box_oauth_setup
+   ```
+   This opens the Box consent screen in your browser — **log in with your
+   Berkeley Box account** (the one with real access to CalSol's folders) and
+   approve access. The script catches the redirect locally and saves a token
+   to `BOX_TOKEN_STORAGE_PATH` (gitignored); it refreshes itself
+   automatically after that, and you shouldn't need to re-run this unless
+   the token file is lost or access is revoked.
+5. Note the Dashboard root folder's ID from its Box URL, e.g.
+   `https://calsol.app.box.com/folder/123456789` → `123456789`.
 
 ## 2. Configure environment
 
 ```bash
 cp .env.example .env
-# fill in BOX_CLIENT_ID, BOX_CLIENT_SECRET, BOX_ENTERPRISE_ID, BOX_DASHBOARD_ROOT_FOLDER_ID
+# fill in BOX_CLIENT_ID, BOX_CLIENT_SECRET, BOX_DASHBOARD_ROOT_FOLDER_ID
+# BOX_REDIRECT_URI and BOX_TOKEN_STORAGE_PATH already have working defaults
 ```
 
-`.env` is gitignored — never commit real credentials (see `CLAUDE.md`).
+`.env` is gitignored — never commit real credentials (see `CLAUDE.md`). The
+OAuth token file (`BOX_TOKEN_STORAGE_PATH`, default `.box_tokens`) is also
+gitignored — it's as sensitive as a password, since it grants access to
+whatever Box account authorized it.
 
 ## 3. Run locally
 
@@ -132,6 +92,7 @@ Visit `http://localhost:8000/docs` for interactive API docs, or
   Phase 2 once the hashing pipeline exists to fill in `sha256_hash`.
 - `app/config.py` — env-driven settings (`pydantic-settings`); see `.env.example`
   for the full list.
+- `scripts/box_oauth_setup.py` — one-time OAuth authorization, see step 1 above.
 
 ## 5. Tests & linting
 

@@ -99,3 +99,17 @@ Chronological record of significant decisions for CDX, including what was consid
 **Why**: With an 18-day runway and no existing code, every day spent deliberating is a day not spent building. These defaults were chosen for being cheap, reversible, and fast to stand up — not necessarily the eventual production choice. See `docs/TIMELINE.md` for the checkpoint schedule and budget this scope maps to.
 
 **Status**: Provisional, scoped to the 2026-09-18 deadline (2026-08-31). Long-term mainnet custody and hosting decisions remain open per #6/#7.
+
+---
+
+## 10. Box auth: OAuth 2.0 User Authentication instead of a CCG service account
+
+**Decision**: The backend authenticates to Box via OAuth 2.0 (User Authentication), acting as whichever Box account completes a one-time authorization (`backend/scripts/box_oauth_setup.py`), instead of an independent Client Credentials Grant (CCG) service account.
+
+**Considered**: The original plan (`docs/ARCHITECTURE.md`) was a CCG service account, registered under some Enterprise-tier Box account and invited as a collaborator into CalSol's folders — either Berkeley's own enterprise or a separate paid one, per `backend/README.md`'s original Path A/B.
+
+**Why rejected**: Berkeley IT rejected the API app request outright, citing Box API costs, and paying out of pocket for a separate Business-tier account (~$15-20/mo) wasn't viable either. OAuth 2.0 Custom Apps sidestep both: an unpublished custom app doesn't need enterprise approval, so it can be registered on a completely free, non-enterprise Box account.
+
+**Trade-off accepted**: The backend no longer has an independent service-account identity — it acts as whatever specific Box account (intended: the maintainer's own Berkeley account) authorized it, inheriting that account's own folder access instead of needing an explicit collaborator invite. This is weaker than a service account: it's tied to one person's continued access, not a durable team-owned identity. Revisit once Box access stops being a blocker (retry Berkeley IT, or pursue Box's nonprofit donation program via TechSoup if CalSol or a fiscal sponsor qualifies as a 501(c)(3)) — don't let this stopgap become permanent by default.
+
+**Status**: Active (2026-09-28). Superseding decision — the CCG approach described in `docs/ARCHITECTURE.md` is no longer current; that doc should be updated to match when next touched.

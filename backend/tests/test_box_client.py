@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 
 import pytest
-from box_sdk_gen import BoxAPIError
+from box_sdk_gen import BoxAPIError, FileBaseTypeField
 
 from app.config import get_settings
 from app.services.box_client import BoxNotFoundError, BoxService, BoxServiceError
@@ -20,7 +20,10 @@ def test_list_folder_maps_entries(box_service):
 
     entry = MagicMock()
     entry.id = "111"
-    entry.type = "file"
+    # box-sdk-gen returns a real enum here, not a plain string — this test guards
+    # against regressing back to str(entry.type), which stringifies to
+    # "FileBaseTypeField.FILE" instead of "file".
+    entry.type = FileBaseTypeField.FILE
     entry.name = "spec.pdf"
     entry.size = 2048
     entry.modified_at = None
@@ -37,6 +40,7 @@ def test_list_folder_maps_entries(box_service):
     assert listing.folder_name == "Dashboard Root"
     assert len(listing.items) == 1
     assert listing.items[0].id == "111"
+    assert listing.items[0].type == "file"
     assert listing.items[0].name == "spec.pdf"
     assert listing.items[0].size == 2048
 

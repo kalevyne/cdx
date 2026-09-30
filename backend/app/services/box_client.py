@@ -3,9 +3,10 @@ from io import BytesIO
 
 from box_sdk_gen import (
     BoxAPIError,
-    BoxCCGAuth,
     BoxClient,
-    CCGConfig,
+    BoxOAuth,
+    FileTokenStorage,
+    OAuthConfig,
     UploadFileAttributes,
     UploadFileAttributesParentField,
 )
@@ -24,16 +25,18 @@ class BoxServiceError(Exception):
 
 
 class BoxService:
-    """Thin wrapper around box-sdk-gen, authenticated as the CDX service account
-    (Client Credentials Grant). The service account only sees folders it has been
-    added to as a collaborator in Box — see backend/README.md for setup."""
+    """Thin wrapper around box-sdk-gen, authenticated via OAuth 2.0 (User
+    Authentication) as whichever Box account completed the one-time authorization
+    in `backend/scripts/box_oauth_setup.py` — that account's own Box permissions
+    determine what CDX can see. See backend/README.md for setup. Tokens persist
+    to `settings.box_token_storage_path` and refresh automatically."""
 
     def __init__(self, settings: Settings) -> None:
-        auth = BoxCCGAuth(
-            CCGConfig(
+        auth = BoxOAuth(
+            OAuthConfig(
                 client_id=settings.box_client_id,
                 client_secret=settings.box_client_secret,
-                enterprise_id=settings.box_enterprise_id,
+                token_storage=FileTokenStorage(settings.box_token_storage_path),
             )
         )
         self._client = BoxClient(auth=auth)
@@ -49,7 +52,7 @@ class BoxService:
         items = [
             BoxItem(
                 id=entry.id,
-                type=str(entry.type),
+                type=entry.type.value,
                 name=entry.name,
                 size=getattr(entry, "size", None),
                 modified_at=getattr(entry, "modified_at", None),
