@@ -381,6 +381,9 @@
           }
         },
         "required": [
+          "anchor_status",
+          "xrpl_network",
+          "xrpl_tx_hash",
           "id",
           "box_file_id",
           "box_file_version",
@@ -393,10 +396,7 @@
           "subsystem",
           "author_name",
           "message",
-          "anchor_status",
           "anchor_error",
-          "xrpl_network",
-          "xrpl_tx_hash",
           "xrpl_ledger_index",
           "created_at",
           "anchored_at",
@@ -454,6 +454,123 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "PublicCdxCommit": {
+        "description": "What the public sponsor page may show about a commit: no author, no\nmessage, no Box IDs \u2014 just that a file was recorded, and its proof.",
+        "properties": {
+          "anchor_status": {
+            "$ref": "#/components/schemas/AnchorStatus"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "file_name": {
+            "title": "File Name",
+            "type": "string"
+          },
+          "sha256_hash": {
+            "title": "Sha256 Hash",
+            "type": "string"
+          },
+          "subsystem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subsystem"
+          },
+          "xrpl_explorer_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "readOnly": true,
+            "title": "Xrpl Explorer Url"
+          },
+          "xrpl_network": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Xrpl Network"
+          },
+          "xrpl_tx_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Xrpl Tx Hash"
+          }
+        },
+        "required": [
+          "anchor_status",
+          "xrpl_network",
+          "xrpl_tx_hash",
+          "subsystem",
+          "file_name",
+          "sha256_hash",
+          "created_at",
+          "xrpl_explorer_url"
+        ],
+        "title": "PublicCdxCommit",
+        "type": "object"
+      },
+      "PublicSummary": {
+        "properties": {
+          "anchored_commits": {
+            "title": "Anchored Commits",
+            "type": "integer"
+          },
+          "contributors": {
+            "title": "Contributors",
+            "type": "integer"
+          },
+          "recent_anchored": {
+            "items": {
+              "$ref": "#/components/schemas/PublicCdxCommit"
+            },
+            "title": "Recent Anchored",
+            "type": "array"
+          },
+          "subsystems": {
+            "items": {
+              "$ref": "#/components/schemas/SubsystemOverview"
+            },
+            "title": "Subsystems",
+            "type": "array"
+          },
+          "total_commits": {
+            "title": "Total Commits",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_commits",
+          "anchored_commits",
+          "contributors",
+          "subsystems",
+          "recent_anchored"
+        ],
+        "title": "PublicSummary",
+        "type": "object"
+      },
       "SessionUser": {
         "description": "The engineer logged in to the dashboard, as identified by Box. Stored in\nthe signed session cookie \u2014 never put Box tokens or secrets here.",
         "properties": {
@@ -476,6 +593,208 @@
           "login"
         ],
         "title": "SessionUser",
+        "type": "object"
+      },
+      "SubsystemOverview": {
+        "description": "Per-subsystem status that's safe to show publicly.",
+        "properties": {
+          "anchored_count": {
+            "title": "Anchored Count",
+            "type": "integer"
+          },
+          "commit_count": {
+            "title": "Commit Count",
+            "type": "integer"
+          },
+          "last_commit_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Commit At"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SubsystemStage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "slug",
+          "name",
+          "stage",
+          "commit_count",
+          "anchored_count",
+          "last_commit_at"
+        ],
+        "title": "SubsystemOverview",
+        "type": "object"
+      },
+      "SubsystemStage": {
+        "description": "Where a subsystem is in CalSol's design process, in order.",
+        "enum": [
+          "concept",
+          "design",
+          "review",
+          "manufacturing",
+          "testing",
+          "complete"
+        ],
+        "title": "SubsystemStage",
+        "type": "string"
+      },
+      "SubsystemSummary": {
+        "description": "A dashboard card: the public overview plus team-internal details.",
+        "properties": {
+          "anchored_count": {
+            "title": "Anchored Count",
+            "type": "integer"
+          },
+          "commit_count": {
+            "title": "Commit Count",
+            "type": "integer"
+          },
+          "last_commit_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Commit At"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owner_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Name"
+          },
+          "recent_commits": {
+            "items": {
+              "$ref": "#/components/schemas/CdxCommitRead"
+            },
+            "title": "Recent Commits",
+            "type": "array"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SubsystemStage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Note"
+          },
+          "updated_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated By"
+          }
+        },
+        "required": [
+          "slug",
+          "name",
+          "stage",
+          "commit_count",
+          "anchored_count",
+          "last_commit_at",
+          "owner_name",
+          "status_note",
+          "updated_by",
+          "recent_commits"
+        ],
+        "title": "SubsystemSummary",
+        "type": "object"
+      },
+      "SubsystemUpdate": {
+        "description": "PATCH body: only the fields sent are changed; send null to clear one.",
+        "properties": {
+          "owner_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Name"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SubsystemStage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Note"
+          }
+        },
+        "title": "SubsystemUpdate",
         "type": "object"
       },
       "ValidationError": {
@@ -1059,6 +1378,105 @@
         "summary": "Get Folder",
         "tags": [
           "box"
+        ]
+      }
+    },
+    "/api/public/summary": {
+      "get": {
+        "description": "No login needed: the read-only sponsor view (docs/DECISIONS.md #9).",
+        "operationId": "get_public_summary_api_public_summary_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Public Summary",
+        "tags": [
+          "dashboard"
+        ]
+      }
+    },
+    "/api/subsystems": {
+      "get": {
+        "operationId": "list_subsystems_api_subsystems_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SubsystemSummary"
+                  },
+                  "title": "Response List Subsystems Api Subsystems Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Subsystems",
+        "tags": [
+          "dashboard"
+        ]
+      }
+    },
+    "/api/subsystems/{slug}": {
+      "patch": {
+        "operationId": "update_subsystem_api_subsystems__slug__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubsystemUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubsystemSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Subsystem",
+        "tags": [
+          "dashboard"
         ]
       }
     },

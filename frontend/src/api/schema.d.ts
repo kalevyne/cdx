@@ -215,6 +215,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/public/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Public Summary
+         * @description No login needed: the read-only sponsor view (docs/DECISIONS.md #9).
+         */
+        get: operations["get_public_summary_api_public_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/subsystems": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Subsystems */
+        get: operations["list_subsystems_api_subsystems_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/subsystems/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Subsystem */
+        patch: operations["update_subsystem_api_subsystems__slug__patch"];
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -383,6 +437,44 @@ export interface components {
             detail?: components["schemas"]["ValidationError"][];
         };
         /**
+         * PublicCdxCommit
+         * @description What the public sponsor page may show about a commit: no author, no
+         *     message, no Box IDs — just that a file was recorded, and its proof.
+         */
+        PublicCdxCommit: {
+            anchor_status: components["schemas"]["AnchorStatus"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** File Name */
+            file_name: string;
+            /** Sha256 Hash */
+            sha256_hash: string;
+            /** Subsystem */
+            subsystem: string | null;
+            /** Xrpl Explorer Url */
+            readonly xrpl_explorer_url: string | null;
+            /** Xrpl Network */
+            xrpl_network: string | null;
+            /** Xrpl Tx Hash */
+            xrpl_tx_hash: string | null;
+        };
+        /** PublicSummary */
+        PublicSummary: {
+            /** Anchored Commits */
+            anchored_commits: number;
+            /** Contributors */
+            contributors: number;
+            /** Recent Anchored */
+            recent_anchored: components["schemas"]["PublicCdxCommit"][];
+            /** Subsystems */
+            subsystems: components["schemas"]["SubsystemOverview"][];
+            /** Total Commits */
+            total_commits: number;
+        };
+        /**
          * SessionUser
          * @description The engineer logged in to the dashboard, as identified by Box. Stored in
          *     the signed session cookie — never put Box tokens or secrets here.
@@ -394,6 +486,65 @@ export interface components {
             login: string;
             /** Name */
             name: string;
+        };
+        /**
+         * SubsystemOverview
+         * @description Per-subsystem status that's safe to show publicly.
+         */
+        SubsystemOverview: {
+            /** Anchored Count */
+            anchored_count: number;
+            /** Commit Count */
+            commit_count: number;
+            /** Last Commit At */
+            last_commit_at: string | null;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            stage: components["schemas"]["SubsystemStage"] | null;
+        };
+        /**
+         * SubsystemStage
+         * @description Where a subsystem is in CalSol's design process, in order.
+         * @enum {string}
+         */
+        SubsystemStage: "concept" | "design" | "review" | "manufacturing" | "testing" | "complete";
+        /**
+         * SubsystemSummary
+         * @description A dashboard card: the public overview plus team-internal details.
+         */
+        SubsystemSummary: {
+            /** Anchored Count */
+            anchored_count: number;
+            /** Commit Count */
+            commit_count: number;
+            /** Last Commit At */
+            last_commit_at: string | null;
+            /** Name */
+            name: string;
+            /** Owner Name */
+            owner_name: string | null;
+            /** Recent Commits */
+            recent_commits: components["schemas"]["CdxCommitRead"][];
+            /** Slug */
+            slug: string;
+            stage: components["schemas"]["SubsystemStage"] | null;
+            /** Status Note */
+            status_note: string | null;
+            /** Updated By */
+            updated_by: string | null;
+        };
+        /**
+         * SubsystemUpdate
+         * @description PATCH body: only the fields sent are changed; send null to clear one.
+         */
+        SubsystemUpdate: {
+            /** Owner Name */
+            owner_name?: string | null;
+            stage?: components["schemas"]["SubsystemStage"] | null;
+            /** Status Note */
+            status_note?: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -775,6 +926,81 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BoxFolderListing"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_public_summary_api_public_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicSummary"];
+                };
+            };
+        };
+    };
+    list_subsystems_api_subsystems_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubsystemSummary"][];
+                };
+            };
+        };
+    };
+    update_subsystem_api_subsystems__slug__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubsystemUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubsystemSummary"];
                 };
             };
             /** @description Validation Error */
