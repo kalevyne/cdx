@@ -7,28 +7,20 @@ Progress against `docs/TIMELINE.md` is tracked in `docs/HANDOFF.md`.
 
 ## 1. Set up Box access (one-time, do this first)
 
-**Current approach: OAuth 2.0 User Authentication, not a service account.**
-CDX originally planned a Client Credentials Grant (CCG) service account (see
-`docs/ARCHITECTURE.md`), but that requires an Enterprise-tier Box account to
-register, and Berkeley IT rejected the request outright over API costs —
-see `docs/DECISIONS.md` #10. OAuth 2.0 Custom Apps don't have that
-restriction: they can be created on a completely free, non-enterprise Box
-account, because an unpublished custom app doesn't need enterprise approval.
+**Current approach: OAuth 2.0 User Authentication, not a service account**
+(see `docs/DECISIONS.md` #10).
 
-The trade-off: instead of an independent service-account identity, the
-backend acts *as whichever Box account completes the one-time authorization
-below*. Point that at your own Berkeley Box account and CDX inherits
-whatever CalSol folders that account can already see — no separate
-folder-sharing step needed. The real cost is that this ties the backend's
-Box access to one person's account rather than a durable service identity;
-revisit this once Box access isn't blocking anything (ask CalSol/IT again,
-or pursue the nonprofit donation route via TechSoup) — don't let it become
-permanent by default.
+The backend acts *as whichever Box account completes the one-time
+authorization below*, and can see whatever CalSol folders that account can
+already see. The cost is that this ties the backend's Box access to one
+person's account rather than a durable, team-owned identity; move to one
+when it's available, and don't let the current setup become permanent by
+default.
 
-1. Sign up for a free Box account (any email — this does **not** need to be
-   your Berkeley account, and does **not** need to be Enterprise-tier).
+1. Pick the Box account that will own the app registration (a free account
+   works).
 2. Go to the [Box Developer Console](https://app.box.com/developers/console)
-   logged into that free account. **Create Platform App** → **Custom App**
+   logged into that account. **Create Platform App** → **Custom App**
    → **User Authentication (OAuth 2.0)**. Name it `CDX Dashboard`.
 3. Under **Configuration**:
    - Note the **Client ID** and **Client Secret**.

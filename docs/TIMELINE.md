@@ -8,7 +8,7 @@
 
 ### Day 0 — Mon 2026-08-31 — Kickoff: unblock externals
 These take calendar time, not just dev time, so they start immediately, in parallel with repo scaffolding:
-- Request/register the Box service account + API app from CalSol's Box admin (blocks all Box work). **Status (2026-09-08)**: CalSol/Berkeley IT rejected the request outright (blanket no on API costs). Working Path A instead — register the Custom App under a separate account we control (paid Business-tier, ~$15-20/mo, since free Box developer sandboxes stopped accepting new signups in 2023) and invite the resulting service account as a folder collaborator into CalSol's real Box — see `backend/README.md`. Still open: who pays.
+- Request/register the Box service account + API app from CalSol's Box admin (blocks all Box work). **Status**: no service account; superseded by OAuth 2.0 User Authentication (`docs/DECISIONS.md` #10) — see `backend/README.md`.
 - Create the XRPL Testnet wallet (free, instant). **Done (2026-09-08)** — funded via the public Testnet faucet, address `r3hDpqpYUWcFXsVfEenc5dPDCn2hMij3R2`, seed in `backend/.env` (gitignored, not committed).
 - Buy a domain and stand up the managed-hosting accounts (see Budget below). **Open** — needs a payment method; not yet done.
 - Scaffold `backend/` (FastAPI) and `frontend/` (React + a component library — see Budget) per `CLAUDE.md`. **Done** — both scaffolds exist and run.

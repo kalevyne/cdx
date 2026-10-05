@@ -106,11 +106,11 @@ Chronological record of significant decisions for CDX, including what was consid
 
 **Decision**: The backend authenticates to Box via OAuth 2.0 (User Authentication), acting as whichever Box account completes a one-time authorization (`backend/scripts/box_oauth_setup.py`), instead of an independent Client Credentials Grant (CCG) service account.
 
-**Considered**: The original plan (`docs/ARCHITECTURE.md`) was a CCG service account, registered under some Enterprise-tier Box account and invited as a collaborator into CalSol's folders — either Berkeley's own enterprise or a separate paid one, per `backend/README.md`'s original Path A/B.
+**Considered**: The original plan (`docs/ARCHITECTURE.md`) was a CCG service account, invited as a collaborator into CalSol's folders.
 
-**Why rejected**: Berkeley IT rejected the API app request outright, citing Box API costs, and paying out of pocket for a separate Business-tier account (~$15-20/mo) wasn't viable either. OAuth 2.0 Custom Apps sidestep both: an unpublished custom app doesn't need enterprise approval, so it can be registered on a completely free, non-enterprise Box account.
+**Why rejected**: A service account wasn't available to the project in time for the demo. OAuth 2.0 User Authentication works with the Box access the project already has.
 
-**Trade-off accepted**: The backend no longer has an independent service-account identity — it acts as whatever specific Box account (intended: the maintainer's own Berkeley account) authorized it, inheriting that account's own folder access instead of needing an explicit collaborator invite. This is weaker than a service account: it's tied to one person's continued access, not a durable team-owned identity. Revisit once Box access stops being a blocker (retry Berkeley IT, or pursue Box's nonprofit donation program via TechSoup if CalSol or a fiscal sponsor qualifies as a 501(c)(3)) — don't let this stopgap become permanent by default.
+**Trade-off accepted**: The backend no longer has an independent service-account identity — it acts as whichever Box account authorized it, inheriting that account's own folder access instead of needing an explicit collaborator invite. This is weaker than a service account: it's tied to one person's continued access, not a durable team-owned identity. Revisit once a team-owned identity is available — don't let this become permanent by default.
 
 **Status**: Active (2026-09-28). Superseding decision — `docs/ARCHITECTURE.md` was updated to match on 2026-09-30.
 
