@@ -17,6 +17,14 @@ os.environ.update(
         "FRONTEND_URL": "http://frontend.test",
     }
 )
+# XRPL starts unconfigured; tests that need it set these themselves.
+for name in ("XRPL_TESTNET_WALLET_SEED", "XRPL_ANCHOR_DESTINATION"):
+    os.environ.pop(name, None)
+
+from app.config import Settings  # noqa: E402
+
+# Tests see only the environment above, never a developer's backend/.env.
+Settings.model_config["env_file"] = None
 
 from app.auth import require_user  # noqa: E402
 from app.schemas.auth import SessionUser  # noqa: E402
