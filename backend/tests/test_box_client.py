@@ -1,3 +1,4 @@
+from io import BytesIO
 from unittest.mock import MagicMock
 
 import pytest
@@ -116,14 +117,31 @@ def test_get_file_metadata_maps_sha_1_attribute(box_service):
 
 def test_download_file_reads_stream(box_service):
     box_service._client.files.get_file_by_id.return_value = _box_file()
-    box_service._client.downloads.download_file.return_value = MagicMock(
-        read=MagicMock(return_value=b"file-bytes")
-    )
+    box_service._client.downloads.download_file.return_value = BytesIO(b"file-bytes")
 
     metadata, content = box_service.download_file("9", version_id="v1")
 
     assert (metadata.id, content) == ("9", b"file-bytes")
     box_service._client.downloads.download_file.assert_called_once_with("9", version="v1")
+
+
+def test_open_file_content_reads_in_chunks(box_service, monkeypatch):
+    monkeypatch.setattr("app.services.box_client._DOWNLOAD_CHUNK_BYTES", 4)
+    box_service._client.files.get_file_by_id.return_value = _box_file()
+    box_service._client.downloads.download_file.return_value = BytesIO(b"file-bytes")
+
+    chunks = box_service.open_file_content(box_service.get_file_metadata("9"))
+
+    assert list(chunks) == [b"file", b"-byt", b"es"]
+
+
+def test_download_of_file_box_is_still_preparing_is_a_service_error(box_service):
+    box_service._client.files.get_file_by_id.return_value = _box_file()
+    # box-sdk-gen returns None for Box's "202 Accepted, retry later" answer.
+    box_service._client.downloads.download_file.return_value = None
+
+    with pytest.raises(BoxServiceError, match="isn't ready"):
+        box_service.download_file("9")
 
 
 def test_upload_file_creates_new_file(box_service):

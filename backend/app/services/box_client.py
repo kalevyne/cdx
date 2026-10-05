@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from functools import lru_cache
 from io import BytesIO
 from typing import TypeVar
@@ -24,6 +24,9 @@ T = TypeVar("T")
 
 # Box's maximum page size for folder listings.
 _FOLDER_PAGE_LIMIT = 1000
+# File content is read from Box in pieces this big, so relaying a download to
+# the browser never holds more than one piece of it in memory.
+_DOWNLOAD_CHUNK_BYTES = 64 * 1024
 _FOLDER_FIELDS = ["id", "name", "path_collection"]
 _FILE_FIELDS = [
     "id",
@@ -79,7 +82,8 @@ class BoxService:
     (docs/DECISIONS.md #10/#11), so every method that looks an item up by ID
     raises BoxNotFoundError for anything outside BOX_DASHBOARD_ROOT_FOLDER_ID.
     `upload_file`/`ensure_folder` take a folder the caller already resolved
-    through `get_folder`."""
+    through `get_folder`, and `open_file_content` a file resolved through
+    `get_file_metadata`."""
 
     def __init__(self, settings: Settings) -> None:
         auth = make_box_oauth(settings, make_backend_token_storage(settings))
@@ -127,12 +131,25 @@ class BoxService:
         self, file_id: str, version_id: str | None = None
     ) -> tuple[BoxFileMetadata, bytes]:
         """The file's metadata plus its current content, or the content of a
-        specific earlier version."""
+        specific earlier version, read fully into memory. To relay a file to
+        the browser use `open_file_content` instead."""
         metadata = self.get_file_metadata(file_id)
+        return metadata, b"".join(self.open_file_content(metadata, version_id))
+
+    def open_file_content(
+        self, file: BoxFileMetadata, version_id: str | None = None
+    ) -> Iterator[bytes]:
+        """Start downloading a file the caller already resolved through
+        `get_file_metadata` (current content, or a specific earlier version).
+        The Box request is made here; the content is read chunk by chunk as the
+        returned iterator is consumed."""
         stream = _call_box(
-            lambda: self._client.downloads.download_file(file_id, version=version_id), file_id
+            lambda: self._client.downloads.download_file(file.id, version=version_id), file.id
         )
-        return metadata, stream.read()
+        if stream is None:
+            # Box answers 202 with no body while it's still preparing a new upload.
+            raise BoxServiceError(f"Box isn't ready to serve {file.id} yet; try again shortly")
+        return iter(lambda: stream.read(_DOWNLOAD_CHUNK_BYTES), b"")
 
     def upload_file(self, folder_id: str, filename: str, content: bytes) -> BoxFileMetadata:
         """Upload `content` as `filename` into the folder. If a file with that name

@@ -191,6 +191,9 @@ Postgres database. After the first deploy:
 - `app/services/box_client.py` — `BoxService`, a thin wrapper over
   [box-sdk-gen](https://github.com/box/box-python-sdk-gen) for list/read/upload/
   download, translating Box API errors into `BoxNotFoundError` / `BoxServiceError`.
+- `app/services/file_downloads.py` — relaying file content to the browser
+  (downloads and previews): streaming, the preview size cap, the concurrent
+  download limit and ETags.
 - `app/services/box_login.py` — the engineer login exchange + access check.
 - `app/services/box_token_storage.py` — file- or database-backed storage for
   the backend's own Box token.
@@ -246,7 +249,8 @@ the migrations disagree, so a forgotten migration shows up in CI.
 | GET    | `/api/folders`                   | yes  | List the configured Dashboard root folder |
 | GET    | `/api/folders/{folder_id}`       | yes  | List an arbitrary folder's contents       |
 | GET    | `/api/files/{file_id}`           | yes  | File metadata                             |
-| GET    | `/api/files/{file_id}/content`   | yes  | Download file bytes                       |
+| GET    | `/api/files/{file_id}/content`   | yes  | Download file bytes (`?version_id=`)      |
+| GET    | `/api/files/{file_id}/preview`   | yes  | Same bytes for the in-app preview; 413 over 20 MB |
 | POST   | `/api/cdx-commits`               | yes  | Commit a file (multipart, see step 6)     |
 | GET    | `/api/cdx-commits`               | yes  | Recent CDX commits (`?subsystem=&limit=`) |
 | GET    | `/api/cdx-commits/{id}`          | yes  | One CDX commit                            |

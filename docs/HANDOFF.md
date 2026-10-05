@@ -165,6 +165,22 @@ action · `[ ]` not started · `[!]` blocked (see "Blocked / fix later").
 - [x] Demo script + pre-demo checklist + fallbacks: `docs/DEMO.md`.
 - [!] Backup demo video, custom domain, live rehearsal — human-only.
 
+### After the checkpoints — file previews (2026-10-05)
+- [x] In-app previews (DECISIONS.md #13): images, PDF, Markdown, CSV/TSV,
+  text/code, from `/browse` (click a file; arrows step through the folder)
+  and from a commit page (previews that commit's exact version). Unsupported
+  or oversized files say so and offer the download.
+- [x] Downloads/previews are streamed from Box instead of buffered, capped
+  at `MAX_CONCURRENT_DOWNLOADS` (default 8) at once, and revalidated with
+  ETags. Previews are refused over 20 MB server-side.
+- [x] Downloaded files keep their real name: the name is also the last URL
+  segment and the link's `download` attribute, for browsers/proxies that
+  drop `Content-Disposition`.
+- [~] **Needs live check**: verified in a browser against a faked Box only.
+  Against real Box, open one of each type on `/browse`, and confirm a
+  download saves under its own name (it was saving as "content" before; the
+  header was already correct locally, so the cause wasn't reproduced).
+
 ## Blocked / fix later
 
 Each entry: what's blocked, why, and the concrete next step.
@@ -189,7 +205,8 @@ Each entry: what's blocked, why, and the concrete next step.
    when convenient; APIs are the same.
 7. **Files over 50 MB** are rejected (Box's single-upload limit). CAD files
    can exceed that; supporting them means Box's chunked upload API in
-   `BoxService.upload_file`.
+   `BoxService.upload_file`. Uploads and the "Verify now" re-hash still read
+   the whole file into memory; make both streaming at the same time.
 8. **Direct edits in Box aren't prevented or recorded** — the original plan
    relied on a service account owning the tree, which decision #10 dropped.
    Committed versions stay verifiable (each CDX commit pins a Box version),

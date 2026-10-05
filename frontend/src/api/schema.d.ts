@@ -181,6 +181,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/files/{file_id}/content/{filename}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download File
+         * @description The file's current content, or a specific version (e.g. the one a CDX commit recorded).
+         */
+        get: operations["download_file_api_files__file_id__content__filename__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/files/{file_id}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview File
+         * @description Same bytes as `/content`, for the in-app preview: refused with a 413
+         *     when the file is over the preview size cap.
+         */
+        get: operations["preview_file_api_files__file_id__preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/folders": {
         parameters: {
             query?: never;
@@ -891,7 +932,79 @@ export interface operations {
             query?: {
                 version_id?: string | null;
             };
-            header?: never;
+            header?: {
+                "if-none-match"?: string | null;
+            };
+            path: {
+                file_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_file_api_files__file_id__content__filename__get: {
+        parameters: {
+            query?: {
+                version_id?: string | null;
+            };
+            header?: {
+                "if-none-match"?: string | null;
+            };
+            path: {
+                file_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_file_api_files__file_id__preview_get: {
+        parameters: {
+            query?: {
+                version_id?: string | null;
+            };
+            header?: {
+                "if-none-match"?: string | null;
+            };
             path: {
                 file_id: string;
             };

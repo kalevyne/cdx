@@ -14,6 +14,7 @@ from app.services.cdx_commits import (
     InvalidCdxCommitError,
 )
 from app.services.dashboard import SubsystemNotFoundError
+from app.services.file_downloads import DownloadsBusyError, PreviewTooLargeError
 from app.services.xrpl_client import XrplError, XrplNotConfiguredError
 
 # Subclasses resolve to their own entry first (e.g. FileTooLargeError → 413).
@@ -24,6 +25,8 @@ _STATUS_CODES: dict[type[Exception], int] = {
     InvalidCdxCommitError: 422,
     FileTooLargeError: 413,
     SubsystemNotFoundError: 404,
+    PreviewTooLargeError: 413,
+    DownloadsBusyError: 503,
     XrplError: 502,
     XrplNotConfiguredError: 503,
     ConfigurationError: 503,

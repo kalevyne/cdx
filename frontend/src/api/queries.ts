@@ -8,7 +8,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query'
 
-import { ApiError, apiFetch } from './client'
+import { ApiError, apiFetch, apiFetchBytes, filePreviewUrl } from './client'
 import type {
   BoxFolderListing,
   CdxCommit,
@@ -22,10 +22,15 @@ import type {
 
 // How often to re-check a commit whose XRPL anchoring is still in flight.
 const ANCHOR_POLL_MS = 3_000
+// A preview waits this long before asking the server for the file, so clicking
+// quickly through a folder only downloads the file the user stops on.
+const PREVIEW_SETTLE_MS = 150
 
 export const queryKeys = {
   me: ['me'] as const,
   folder: (folderId?: string) => ['folder', folderId ?? 'root'] as const,
+  filePreview: (fileId: string, revision: string | null) =>
+    ['file-preview', fileId, revision] as const,
   cdxCommits: (filters: CdxCommitFilters = {}) => ['cdx-commits', filters] as const,
   cdxCommit: (id: number) => ['cdx-commit', id] as const,
   verification: (id: number) => ['cdx-commit', id, 'verification'] as const,
@@ -90,6 +95,41 @@ export function useFolder(folderId?: string, options: { enabled?: boolean } = {}
         folderId ? `/api/folders/${encodeURIComponent(folderId)}` : '/api/folders',
       ),
     ...options,
+  })
+}
+
+export interface PreviewSource {
+  id: string
+  /** Preview this exact Box version (a CDX commit's) instead of the current content. */
+  versionId?: string | null
+  /** When the current content last changed, so an updated file isn't shown from cache. */
+  modifiedAt?: string | null
+}
+
+/** A file's bytes for the in-app preview. Each file is downloaded once and
+ * kept briefly, so going back and forth between files doesn't re-download
+ * them; leaving a preview before it loads cancels the request. */
+export function useFilePreview(file: PreviewSource) {
+  return useQuery({
+    queryKey: queryKeys.filePreview(file.id, file.versionId ?? file.modifiedAt ?? null),
+    queryFn: async ({ signal }) => {
+      await delay(PREVIEW_SETTLE_MS, signal)
+      return apiFetchBytes(filePreviewUrl(file.id, file.versionId), { signal })
+    },
+    staleTime: 5 * 60_000,
+    // Previews can be megabytes each: drop them soon after they're closed.
+    gcTime: 60_000,
+    refetchOnWindowFocus: false,
+  })
+}
+
+function delay(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(resolve, ms)
+    signal.addEventListener('abort', () => {
+      clearTimeout(timer)
+      reject(signal.reason)
+    })
   })
 }
 

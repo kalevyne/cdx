@@ -24,3 +24,7 @@ export type ServerStatus = Schemas['ServerStatus']
 // Mirrors MAX_UPLOAD_BYTES in backend/app/services/cdx_commits.py (Box's
 // single-upload limit), so oversized files are caught before uploading.
 export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024
+
+// Mirrors MAX_PREVIEW_BYTES in backend/app/services/file_downloads.py: the
+// server refuses to relay anything bigger for a preview, so don't ask.
+export const MAX_PREVIEW_BYTES = 20 * 1024 * 1024

@@ -2,6 +2,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Download,
+  Eye,
   FileText,
   Fingerprint,
   Landmark,
@@ -21,6 +22,7 @@ import { useCdxCommit, useRetryAnchoring, useServerStatus, useVerification } fro
 import type { CdxCommit, VerificationCheck } from '@/api/types'
 import { AnchorStatusBadge } from '@/components/AnchorStatusBadge'
 import { PageHeader } from '@/components/AppShell'
+import { FilePreviewDialog } from '@/components/FilePreviewDialog'
 import { HashText } from '@/components/HashText'
 import { LedgerLink } from '@/components/LedgerLink'
 import { ErrorState, LoadingRows } from '@/components/StateViews'
@@ -33,31 +35,49 @@ import { cn } from '@/lib/utils'
 export function CommitDetailPage() {
   const id = Number(useParams().id)
   const cdxCommit = useCdxCommit(id)
+  const [previewing, setPreviewing] = useState(false)
 
   if (cdxCommit.isPending) return <LoadingRows rows={6} />
   if (cdxCommit.isError) return <ErrorState error={cdxCommit.error} title="Couldn't load this commit" />
 
   const commit = cdxCommit.data
+  // The exact bytes this commit recorded, not whatever the file holds now.
+  const committedFile = {
+    id: commit.box_file_id,
+    name: commit.file_name,
+    size: commit.file_size,
+    versionId: commit.box_file_version,
+  }
   return (
     <>
       <PageHeader
         title={commit.file_name}
         description={commit.message}
         actions={
-          <a
-            href={fileDownloadUrl(commit.box_file_id, commit.box_file_version)}
-            download
-            className={buttonVariants({ variant: 'outline' })}
-          >
-            <Download aria-hidden />
-            Download this version
-          </a>
+          <>
+            <Button variant="outline" onClick={() => setPreviewing(true)}>
+              <Eye aria-hidden />
+              Preview
+            </Button>
+            <a
+              href={fileDownloadUrl(commit.box_file_id, committedFile)}
+              download={commit.file_name}
+              className={buttonVariants({ variant: 'outline' })}
+            >
+              <Download aria-hidden />
+              Download this version
+            </a>
+          </>
         }
       />
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <ProofCard cdxCommit={commit} />
         <DetailsCard cdxCommit={commit} />
       </div>
+      <FilePreviewDialog
+        file={previewing ? committedFile : null}
+        onClose={() => setPreviewing(false)}
+      />
     </>
   )
 }

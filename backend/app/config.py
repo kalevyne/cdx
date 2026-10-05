@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     box_token_storage_path: str = ".box_tokens"
     box_dashboard_root_folder_id: str | None = None
 
+    # How many file downloads/previews may be relayed from Box at once; further
+    # requests get a 503 until one finishes (app/services/file_downloads.py).
+    max_concurrent_downloads: int = Field(default=8, ge=1)
+
     database_url: str = "sqlite:///./cdx.db"
 
     # Signs the session cookie. Generate with:

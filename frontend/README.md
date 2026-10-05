@@ -27,8 +27,9 @@ src/
     openapi.json  GENERATED snapshot the types come from (don't edit)
   components/   shared building blocks (app shell, folder tree, states, …)
     ui/           shadcn-style primitives (button, card, input, …)
+    preview/      lazy-loaded file viewers (Markdown, CSV) for FilePreview.tsx
   pages/        one component per route (see App.tsx)
-  lib/          formatting + class-name helpers
+  lib/          formatting + class-name helpers, previewable file types
 ```
 
 ## API types

@@ -12,11 +12,21 @@ export class ApiError extends Error {
 }
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await request(path, init)
+  return (response.status === 204 ? undefined : await response.json()) as T
+}
+
+/** A response body as raw bytes — file content for the in-app preview. */
+export async function apiFetchBytes(path: string, init?: RequestInit): Promise<ArrayBuffer> {
+  return (await request(path, init)).arrayBuffer()
+}
+
+async function request(path: string, init?: RequestInit): Promise<Response> {
   const response = await fetch(path, { credentials: 'same-origin', ...init })
   if (!response.ok) {
     throw new ApiError(response.status, await errorMessage(response))
   }
-  return (response.status === 204 ? undefined : await response.json()) as T
+  return response
 }
 
 const RETURN_TO_KEY = 'cdx:return-to'
@@ -46,9 +56,23 @@ export function takeLoginReturnPath(): string | null {
   }
 }
 
-/** Download URL for a Box file — a specific version when `versionId` is given. */
-export function fileDownloadUrl(fileId: string, versionId?: string | null): string {
+/** Download URL for a Box file — a specific version when `versionId` is given.
+ * `name` goes on the end of the URL so the saved file gets its real name even
+ * in browsers that name downloads after the URL. */
+export function fileDownloadUrl(
+  fileId: string,
+  { name, versionId }: { name?: string; versionId?: string | null } = {},
+): string {
   const url = `/api/files/${encodeURIComponent(fileId)}/content`
+  return withVersion(name ? `${url}/${encodeURIComponent(name)}` : url, versionId)
+}
+
+/** URL of a Box file's bytes for the in-app preview (size-capped by the server). */
+export function filePreviewUrl(fileId: string, versionId?: string | null): string {
+  return withVersion(`/api/files/${encodeURIComponent(fileId)}/preview`, versionId)
+}
+
+function withVersion(url: string, versionId?: string | null): string {
   return versionId ? `${url}?version_id=${encodeURIComponent(versionId)}` : url
 }
 
