@@ -181,6 +181,26 @@ action · `[ ]` not started · `[!]` blocked (see "Blocked / fix later").
   download saves under its own name (it was saving as "content" before; the
   header was already correct locally, so the cause wasn't reproduced).
 
+### After the checkpoints — large-file uploads (2026-10-21)
+- [x] Chunked uploads (DECISIONS.md #14): commits from 20 MB up go to Box
+  in parts via an upload session (new files and new versions), aborted on
+  failure, with retries while Box assembles the parts. Limit is
+  `MAX_UPLOAD_BYTES` (default 2 GB), shown in the commit form via
+  `GET /api/status`.
+- [x] Nothing holds a whole file in memory any more: commits are hashed from
+  the spooled upload, and "Verify now" hashes the Box download as a stream.
+  `BoxService.download_file` (whole file in memory) was removed.
+- [x] Commit form shows upload progress, then "Saving to Box…" while the
+  backend passes the file on.
+- [x] Verified end to end with a 300 MB file through the real backend and the
+  UI in headless Chromium, with Box's HTTP layer faked (part and file SHA-1s
+  checked like Box does): byte-identical copy, matching SHA-256, verification
+  matched, about 26 MB of server memory growth.
+- [~] **Needs live check**: commit a file over 50 MB (a real CAD file) against
+  real Box locally, then on staging. On Render, also check how large an
+  upload the `/api/*` rewrite proxy and the free instance's temp disk accept,
+  and lower `MAX_UPLOAD_BYTES` to match if needed.
+
 ## Blocked / fix later
 
 Each entry: what's blocked, why, and the concrete next step.
@@ -203,10 +223,9 @@ Each entry: what's blocked, why, and the concrete next step.
    were hand-written in shadcn's style. Swap for CLI-generated versions
    (`npx shadcn@latest add card input textarea label badge skeleton alert`)
    when convenient; APIs are the same.
-7. **Files over 50 MB** are rejected (Box's single-upload limit). CAD files
-   can exceed that; supporting them means Box's chunked upload API in
-   `BoxService.upload_file`. Uploads and the "Verify now" re-hash still read
-   the whole file into memory; make both streaming at the same time.
+7. ~~**Files over 50 MB** are rejected~~ — fixed 2026-10-21 with chunked
+   uploads and streaming hashes (DECISIONS.md #14); needs a live check (see
+   "large-file uploads" above).
 8. **Direct edits in Box aren't prevented or recorded** — the original plan
    relied on a service account owning the tree, which decision #10 dropped.
    Committed versions stay verifiable (each CDX commit pins a Box version),
@@ -233,3 +252,8 @@ Each entry: what's blocked, why, and the concrete next step.
   was only installed in the agent's venv), so a fresh install crashed on
   startup with `No module named 'xrpl'`. Verified with a fresh venv built
   from `pyproject.toml` alone (73 tests pass).
+- 2026-10-21 — Large-file uploads: Box chunked upload sessions for files from
+  20 MB up, streaming SHA-256 for commits and verification, configurable
+  `MAX_UPLOAD_BYTES` (2 GB default) exposed on `/api/status`, upload progress
+  in the commit form. 103 backend tests; frontend build + lint clean.
+

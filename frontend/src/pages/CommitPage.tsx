@@ -2,8 +2,9 @@ import { AlertTriangle, CheckCircle2, Upload } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 
-import { useCdxCommit, useCreateCdxCommit, useFolder } from '@/api/queries'
-import { type CdxCommit, MAX_UPLOAD_BYTES } from '@/api/types'
+import type { UploadProgress } from '@/api/client'
+import { useCdxCommit, useCreateCdxCommit, useFolder, useServerStatus } from '@/api/queries'
+import type { CdxCommit } from '@/api/types'
 import { AnchorStatusBadge } from '@/components/AnchorStatusBadge'
 import { PageHeader } from '@/components/AppShell'
 import { FileDrop } from '@/components/FileDrop'
@@ -22,6 +23,8 @@ export function CommitPage() {
   const [params, setParams] = useSearchParams()
   const folderId = params.get('folder') ?? undefined
   const createCommit = useCreateCdxCommit()
+  const maxUploadBytes = useServerStatus().data?.max_upload_bytes
+  const [progress, setProgress] = useState<UploadProgress | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [designReview, setDesignReview] = useState<File | null>(null)
   const [message, setMessage] = useState('')
@@ -33,14 +36,16 @@ export function CommitPage() {
     setDesignReview(null)
     setMessage('')
     setFormError(null)
+    setProgress(null)
   }
 
   function submit(event: FormEvent) {
     event.preventDefault()
-    const problem = validate({ folderId, file, designReview, message })
+    const problem = validate({ folderId, file, designReview, message, maxUploadBytes })
     setFormError(problem)
     if (problem || !folderId || !file) return
-    createCommit.mutate({ folderId, file, designReview, message })
+    setProgress(null)
+    createCommit.mutate({ folderId, file, designReview, message, onProgress: setProgress })
   }
 
   if (createCommit.isSuccess) {
@@ -75,7 +80,13 @@ export function CommitPage() {
             <form onSubmit={submit} className="flex flex-col gap-5">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="commit-file">File</Label>
-                <FileDrop id="commit-file" file={file} onChange={setFile} prompt="Choose the file to commit" />
+                <FileDrop
+                  id="commit-file"
+                  file={file}
+                  onChange={setFile}
+                  prompt="Choose the file to commit"
+                  maxBytes={maxUploadBytes}
+                />
               </div>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="commit-message">Commit message</Label>
@@ -96,6 +107,7 @@ export function CommitPage() {
                   file={designReview}
                   onChange={setDesignReview}
                   prompt="Attach a design review document"
+                  maxBytes={maxUploadBytes}
                 />
               </div>
 
@@ -111,6 +123,7 @@ export function CommitPage() {
                 <Upload aria-hidden />
                 {createCommit.isPending ? 'Uploading…' : 'Commit to Box'}
               </Button>
+              {createCommit.isPending && <UploadProgressBar progress={progress} />}
             </form>
           </CardContent>
         </Card>
@@ -124,18 +137,49 @@ function validate({
   file,
   designReview,
   message,
+  maxUploadBytes,
 }: {
   folderId?: string
   file: File | null
   designReview: File | null
   message: string
+  maxUploadBytes?: number
 }): string | null {
   if (!folderId) return 'Choose a folder to commit into.'
   if (!file) return 'Choose a file to commit.'
   if (!message.trim()) return 'Write a commit message so teammates know what changed.'
-  const tooLarge = [file, designReview].find((f) => f && f.size > MAX_UPLOAD_BYTES)
-  if (tooLarge) return `${tooLarge.name} is larger than ${formatBytes(MAX_UPLOAD_BYTES)}.`
+  // The server enforces the limit regardless; this just saves a long upload.
+  const tooLarge = maxUploadBytes && [file, designReview].find((f) => f && f.size > maxUploadBytes)
+  if (maxUploadBytes && tooLarge) return `${tooLarge.name} is larger than ${formatBytes(maxUploadBytes)}.`
   return null
+}
+
+/** Bytes sent so far, then — once the browser is done — a note that the server
+ * is still passing the file on to Box, which takes a while for big files. */
+function UploadProgressBar({ progress }: { progress: UploadProgress | null }) {
+  const sent = progress && progress.total > 0 ? progress.loaded / progress.total : 0
+  const done = progress !== null && progress.loaded >= progress.total
+  return (
+    <div className="flex flex-col gap-1.5" role="status" aria-live="polite">
+      <div
+        className="h-2 overflow-hidden rounded-full bg-muted"
+        role="progressbar"
+        aria-label="Upload progress"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(sent * 100)}
+      >
+        <div className="h-full bg-primary transition-[width]" style={{ width: `${sent * 100}%` }} />
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {done
+          ? 'Uploaded. Saving to Box and fingerprinting the file…'
+          : progress
+            ? `${Math.round(sent * 100)}% · ${formatBytes(progress.loaded)} of ${formatBytes(progress.total)}`
+            : 'Starting upload…'}
+      </p>
+    </div>
+  )
 }
 
 function SelectedFolder({ folderId }: { folderId?: string }) {

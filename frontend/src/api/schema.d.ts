@@ -543,6 +543,8 @@ export interface components {
         ServerStatus: {
             /** Anchoring Enabled */
             anchoring_enabled: boolean;
+            /** Max Upload Bytes */
+            max_upload_bytes: number;
             /** Xrpl Network */
             xrpl_network: string;
         };

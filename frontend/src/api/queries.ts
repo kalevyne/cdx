@@ -8,7 +8,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query'
 
-import { ApiError, apiFetch, apiFetchBytes, filePreviewUrl } from './client'
+import { ApiError, apiFetch, apiFetchBytes, apiUpload, filePreviewUrl, type UploadProgress } from './client'
 import type {
   BoxFolderListing,
   CdxCommit,
@@ -206,18 +206,19 @@ export interface NewCdxCommit {
   message: string
   file: File
   designReview?: File | null
+  onProgress?: (progress: UploadProgress) => void
 }
 
 export function useCreateCdxCommit() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ folderId, message, file, designReview }: NewCdxCommit) => {
+    mutationFn: ({ folderId, message, file, designReview, onProgress }: NewCdxCommit) => {
       const body = new FormData()
       body.set('folder_id', folderId)
       body.set('message', message)
       body.set('file', file)
       if (designReview) body.set('design_review', designReview)
-      return apiFetch<CdxCommit>('/api/cdx-commits', { method: 'POST', body })
+      return apiUpload<CdxCommit>('/api/cdx-commits', body, onProgress)
     },
     onSuccess: (cdxCommit) => {
       queryClient.invalidateQueries({ queryKey: ['cdx-commits'] })

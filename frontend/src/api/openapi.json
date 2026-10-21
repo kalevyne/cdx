@@ -577,6 +577,10 @@
             "title": "Anchoring Enabled",
             "type": "boolean"
           },
+          "max_upload_bytes": {
+            "title": "Max Upload Bytes",
+            "type": "integer"
+          },
           "xrpl_network": {
             "title": "Xrpl Network",
             "type": "string"
@@ -584,7 +588,8 @@
         },
         "required": [
           "anchoring_enabled",
-          "xrpl_network"
+          "xrpl_network",
+          "max_upload_bytes"
         ],
         "title": "ServerStatus",
         "type": "object"

@@ -1,7 +1,10 @@
+import os
+
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from app.auth import require_user
+from app.config import Settings, get_settings
 from app.db import get_session
 from app.models import AnchorStatus
 from app.schemas.auth import SessionUser
@@ -27,6 +30,7 @@ def create_cdx_commit(
     db: Session = Depends(get_session),
     box: BoxService = Depends(get_box_service),
     xrpl: XrplClient = Depends(get_xrpl_client),
+    settings: Settings = Depends(get_settings),
 ) -> CdxCommitRead:
     cdx_commit = cdx_commits.create_cdx_commit(
         db,
@@ -36,6 +40,7 @@ def create_cdx_commit(
         message=message,
         author=user,
         design_review=_to_commit_file(design_review) if design_review else None,
+        max_upload_bytes=settings.max_upload_bytes,
     )
     # Anchoring waits for ledger validation (seconds), so it runs after the response.
     background_tasks.add_task(anchoring.anchor_in_background, cdx_commit.id, xrpl)
@@ -85,4 +90,8 @@ def verify_cdx_commit(
 
 
 def _to_commit_file(upload: UploadFile) -> CommitFile:
-    return CommitFile(name=upload.filename or "", content=upload.file.read())
+    # The upload is already spooled to a temp file; measure it without reading it.
+    upload.file.seek(0, os.SEEK_END)
+    size = upload.file.tell()
+    upload.file.seek(0)
+    return CommitFile(name=upload.filename or "", content=upload.file, size=size)

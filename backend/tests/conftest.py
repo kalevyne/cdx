@@ -103,12 +103,22 @@ def box_service_mock():
 
 @pytest.fixture
 def box(box_service_mock):
-    """Box mocked well enough to commit into BATTERY_CAD."""
+    """Box mocked well enough to commit into BATTERY_CAD. Uploads are recorded
+    as (folder_id, name, bytes) in `box.uploaded`, read when `upload_file` is
+    called, since the request's upload file is closed afterwards."""
     box_service_mock.get_folder.return_value = BATTERY_CAD
     box_service_mock.ensure_folder.return_value = "design-reviews-folder"
-    box_service_mock.upload_file.side_effect = lambda folder_id, name, content: BoxFileMetadata(
-        id=f"file-{name}", name=name, size=len(content), parent_id=folder_id, version_id="v1"
-    )
+    box_service_mock.uploaded = []
+
+    def upload_file(folder_id, name, content, size):
+        data = content.read()
+        assert len(data) == size
+        box_service_mock.uploaded.append((folder_id, name, data))
+        return BoxFileMetadata(
+            id=f"file-{name}", name=name, size=size, parent_id=folder_id, version_id="v1"
+        )
+
+    box_service_mock.upload_file.side_effect = upload_file
     return box_service_mock
 
 

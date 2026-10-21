@@ -215,10 +215,13 @@ def seed_demo_data(
             db,
             box,
             folder_id=folders.cad_folder_id if demo.in_cad_folder else folders.folder_id,
-            file=CommitFile(demo.file_name, demo.content),
+            file=CommitFile.from_bytes(demo.file_name, demo.content),
             message=demo.message,
             author=author,
-            design_review=CommitFile(*demo.design_review) if demo.design_review else None,
+            design_review=CommitFile.from_bytes(*demo.design_review)
+            if demo.design_review
+            else None,
+            max_upload_bytes=get_settings().max_upload_bytes,
         )
         cdx_commit = anchor_cdx_commit(db, xrpl, cdx_commit.id)
         log(

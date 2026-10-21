@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     # requests get a 503 until one finishes (app/services/file_downloads.py).
     max_concurrent_downloads: int = Field(default=8, ge=1)
 
+    # Largest file a CDX commit accepts. Box itself takes far bigger files via
+    # chunked uploads, but every upload is first spooled to the backend's temp
+    # disk, so keep this under the free disk space of the host.
+    max_upload_bytes: int = Field(default=2 * 1024**3, ge=1)
+
     database_url: str = "sqlite:///./cdx.db"
 
     # Signs the session cookie. Generate with:

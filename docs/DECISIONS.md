@@ -145,7 +145,7 @@ Chronological record of significant decisions for CDX, including what was consid
 **Decision**: Clicking a file in the browser (or "Preview" on a CDX commit, which shows the exact version that commit recorded) opens it in the app: images, PDFs, Markdown, CSV/TSV and plain text/code. Everything else, CAD included, gets "no preview, download instead" — #5 still stands. The bytes come from Box on demand and are relayed by the backend (`GET /api/files/{id}/preview`); CDX stores no file content and no preview cache server-side.
 
 **Limits, and why these numbers**:
-- **20 MB hard cap per preview**, enforced by the server before it downloads anything (`MAX_PREVIEW_BYTES`). It is deliberately independent of the 50 MB upload limit: when chunked uploads lift that one, a click on a multi-gigabyte file must still cost the server nothing. 20 MB covers real design-review PDFs and photos. Text, Markdown and CSV stop at 2 MB in the frontend, because rendering them in the page is what gets slow.
+- **20 MB hard cap per preview**, enforced by the server before it downloads anything (`MAX_PREVIEW_BYTES`). It is deliberately independent of the upload limit (50 MB when this was written, since lifted by #14): a click on a multi-gigabyte file must still cost the server nothing. 20 MB covers real design-review PDFs and photos. Text, Markdown and CSV stop at 2 MB in the frontend, because rendering them in the page is what gets slow.
 - **Downloads and previews are streamed**, 64 KB at a time. Before this, every download read the whole file into memory, so a handful of simultaneous 50 MB downloads could exhaust a 512 MB instance.
 - **At most 8 relayed at once** (`MAX_CONCURRENT_DOWNLOADS`); the next request gets a 503 immediately and the frontend retries. This keeps slow Box downloads from occupying the worker threads the rest of the API shares.
 - **Browser-side caching with revalidation** (`ETag` = Box version ID, `Cache-Control: private, no-cache`): re-opening an unchanged file costs one Box metadata call and no download, and a logged-out browser can't read files from its cache. The frontend also waits 150 ms before fetching and cancels on navigation, so flicking through a folder downloads only the file you stop on.
@@ -157,3 +157,22 @@ Chronological record of significant decisions for CDX, including what was consid
 **Known limit**: every Box call uses the backend's one Box account (#10), so all users share its API rate limit (Box documents roughly 1,000 calls/minute per user). The caching above keeps previews well under that for a team of CalSol's size; there is no per-user rate limit yet.
 
 **Status**: Active (2026-10-05).
+
+---
+
+## 14. Large files: Box chunked uploads, spooled to disk, 2 GB default limit
+
+**Decision**: CDX commits of 20 MB and up go to Box through its chunked upload API (an upload session, parts of the size Box picks, each with its SHA-1, then a commit with the whole file's SHA-1). Smaller files keep the single-request upload. Both new files and new versions of an existing file are supported. The limit is `MAX_UPLOAD_BYTES`, default 2 GB, reported to the UI by `GET /api/status` so the form refuses bigger files before uploading them.
+
+**How the bytes flow**: the browser uploads the file to the backend (with a progress bar); Starlette spools it to a temp file; the backend hashes it (SHA-256, streamed) and then sends it to Box part by part. Memory use stays at about one Box part (a few MB to tens of MB) regardless of file size: a 300 MB commit raised the server's memory by about 26 MB in testing. "Verify now" re-hashes the committed Box version as a stream too.
+
+**Why 20 MB**: Box refuses upload sessions below 20 MB, caps single uploads at 50 MB, and recommends chunking above 20 MB.
+
+**Why 2 GB by default**: every in-flight commit occupies its full size on the backend's temp disk until it is done. The limit is a setting so it can be raised to whatever the host's disk and CalSol's Box plan allow (Box's own per-file limit depends on the plan).
+
+**Considered**: having the browser upload straight to Box (no bytes through our server). Rejected for the same reason as in #13: the frontend never talks to Box, and it would need Box credentials or upload URLs in the browser. It is the escape hatch if relaying uploads becomes the bottleneck.
+
+**Known limits**: the upload is fully received before the size check runs, so an over-limit file sent around the UI (e.g. with curl) still costs its upload time and temp disk before the 413. A failed or abandoned Box upload session is aborted; Box expires any that slip through after a day.
+
+**Status**: Active (2026-10-21). Tested against a faked Box only; see `docs/HANDOFF.md`.
+

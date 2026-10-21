@@ -1,3 +1,4 @@
+from typing import BinaryIO
 from unittest.mock import MagicMock
 
 import pytest
@@ -32,9 +33,11 @@ class FolderTreeBox:
     def get_folder(self, folder_id: str) -> BoxFolder:
         return self.folders[folder_id]
 
-    def upload_file(self, folder_id: str, name: str, content: bytes) -> BoxFileMetadata:
-        self.uploads.append((folder_id, name, content))
-        return BoxFileMetadata(id=f"file-{len(self.uploads)}", name=name, size=len(content))
+    def upload_file(
+        self, folder_id: str, name: str, content: BinaryIO, size: int
+    ) -> BoxFileMetadata:
+        self.uploads.append((folder_id, name, content.read()))
+        return BoxFileMetadata(id=f"file-{len(self.uploads)}", name=name, size=size)
 
 
 @pytest.fixture

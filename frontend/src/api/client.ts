@@ -21,6 +21,41 @@ export async function apiFetchBytes(path: string, init?: RequestInit): Promise<A
   return (await request(path, init)).arrayBuffer()
 }
 
+export interface UploadProgress {
+  loaded: number
+  total: number
+}
+
+/** POST a multipart form, reporting upload progress — fetch can't, and a
+ * multi-GB CAD file takes long enough that the engineer needs to see it move. */
+export function apiUpload<T>(
+  path: string,
+  body: FormData,
+  onProgress?: (progress: UploadProgress) => void,
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', path)
+    xhr.withCredentials = true
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress?.({ loaded: event.loaded, total: event.total })
+    }
+    xhr.onload = () => {
+      const response = new Response(xhr.status === 204 ? null : xhr.responseText, {
+        status: xhr.status,
+        statusText: xhr.statusText,
+      })
+      if (!response.ok) {
+        errorMessage(response).then((message) => reject(new ApiError(response.status, message)))
+        return
+      }
+      response.json().then(resolve, reject)
+    }
+    xhr.onerror = () => reject(new ApiError(0, 'The upload failed — check your connection and try again.'))
+    xhr.send(body)
+  })
+}
+
 async function request(path: string, init?: RequestInit): Promise<Response> {
   const response = await fetch(path, { credentials: 'same-origin', ...init })
   if (!response.ok) {
