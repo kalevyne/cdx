@@ -23,10 +23,9 @@ from app.config import get_settings
 from app.schemas.box import BoxFileMetadata
 from app.services.box_client import BoxService
 
-# Hard cap on what the preview endpoint will relay. Uploads are limited to
-# 50 MB today (cdx_commits.MAX_UPLOAD_BYTES), but that limit goes away with
-# chunked uploads; this one stays, so "click a file to look at it" can never
-# mean pulling a multi-gigabyte CAD file through the server. 20 MB covers the
+# Hard cap on what the preview endpoint will relay. Commits can be gigabytes
+# (chunked uploads, MAX_UPLOAD_BYTES), so this cap is what keeps "click a file
+# to look at it" from pulling a multi-gigabyte CAD file through the server. 20 MB covers the
 # formats the frontend can actually render (PDFs, images, text, CSV).
 MAX_PREVIEW_BYTES = 20 * 1024 * 1024
 

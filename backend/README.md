@@ -124,8 +124,11 @@ This uploads the file to that Box folder (as a new version if a file with the
 same name is already there), computes its SHA-256, and records a
 `cdx_commits` row. The subsystem is worked out from the folder's path (the
 nearest ancestor named after an entry in `app/subsystems.py`), and the design
-review goes into that subsystem's `Design Reviews` folder. Files are limited
-to 50 MB (Box's single-upload limit).
+review goes into that subsystem's `Design Reviews` folder. Files from 20 MB up
+go to Box through its chunked upload API, in parts, so large CAD files work;
+the limit is `MAX_UPLOAD_BYTES` (default 2 GB). The upload is spooled to the
+backend's temp disk before it is hashed and sent on, so the host needs that
+much free disk per in-flight commit (see `docs/DECISIONS.md` #14).
 
 ## 7. XRPL anchoring
 

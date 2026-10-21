@@ -1,7 +1,6 @@
 import { FileUp, X } from 'lucide-react'
 import { useId, useState } from 'react'
 
-import { MAX_UPLOAD_BYTES } from '@/api/types'
 import { Button } from '@/components/ui/button'
 import { formatBytes } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -13,11 +12,14 @@ export function FileDrop({
   onChange,
   prompt,
   id,
+  maxBytes,
 }: {
   file: File | null
   onChange: (file: File | null) => void
   prompt: string
   id?: string
+  /** The server's upload limit, shown as a hint once known. */
+  maxBytes?: number
 }) {
   const fallbackId = useId()
   const inputId = id ?? fallbackId
@@ -58,7 +60,9 @@ export function FileDrop({
     >
       <FileUp className="size-5 text-muted-foreground" aria-hidden />
       <span className="text-sm font-medium">{prompt}</span>
-      <span className="text-xs text-muted-foreground">Drag a file here or click to browse (max {formatBytes(MAX_UPLOAD_BYTES)})</span>
+      <span className="text-xs text-muted-foreground">
+        Drag a file here or click to browse{maxBytes ? ` (max ${formatBytes(maxBytes)})` : ''}
+      </span>
       <input
         id={inputId}
         type="file"

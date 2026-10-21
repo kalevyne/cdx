@@ -1,7 +1,7 @@
 import hashlib
 
+from app.config import get_settings
 from app.schemas.box import BoxFolder, BoxFolderRef
-from app.services.cdx_commits import MAX_UPLOAD_BYTES
 from tests.conftest import DASHBOARD_ROOT_ID, TEST_USER, post_cdx_commit
 
 VEHICLE_FOLDER = BoxFolder(
@@ -20,7 +20,7 @@ def test_create_cdx_commit_uploads_hashes_and_records(client, box):
     assert body["subsystem"] == "battery"
     assert body["author_name"] == TEST_USER.name
     assert body["xrpl_tx_hash"] is None
-    box.upload_file.assert_called_once_with("4", "pack.step", b"pack-bytes")
+    assert box.uploaded == [("4", "pack.step", b"pack-bytes")]
 
     fetched = client.get(f"/api/cdx-commits/{body['id']}").json()
     assert (fetched["id"], fetched["sha256_hash"]) == (body["id"], body["sha256_hash"])
@@ -32,7 +32,7 @@ def test_design_review_goes_to_subsystem_design_reviews_folder(client, box):
     body = post_cdx_commit(client, design_review=review).json()
 
     box.ensure_folder.assert_called_once_with("3", "Design Reviews")
-    box.upload_file.assert_any_call("design-reviews-folder", "review.pdf", b"review-bytes")
+    assert ("design-reviews-folder", "review.pdf", b"review-bytes") in box.uploaded
     assert body["design_review_box_file_id"] == "file-review.pdf"
     assert body["design_review_sha256_hash"] == hashlib.sha256(b"review-bytes").hexdigest()
 
@@ -44,7 +44,7 @@ def test_commit_outside_subsystem_has_no_subsystem(client, box):
 
     assert body["subsystem"] is None
     box.ensure_folder.assert_not_called()
-    box.upload_file.assert_any_call("4", "review.pdf", b"r")
+    assert ("4", "review.pdf", b"r") in box.uploaded
 
 
 def test_blank_message_is_rejected_before_uploading(client, box):
@@ -61,11 +61,26 @@ def test_empty_file_is_rejected(client, box):
     box.upload_file.assert_not_called()
 
 
-def test_oversized_file_is_rejected(client, box):
-    response = post_cdx_commit(client, file=("huge.bin", b"x" * (MAX_UPLOAD_BYTES + 1), "x/y"))
+def test_oversized_file_is_rejected(client, box, monkeypatch):
+    monkeypatch.setenv("MAX_UPLOAD_BYTES", "1048576")
+    get_settings.cache_clear()
+
+    response = post_cdx_commit(client, file=("huge.bin", b"x" * (1024 * 1024 + 1), "x/y"))
 
     assert response.status_code == 413
+    assert response.json()["detail"] == "huge.bin is larger than 1 MB"
     box.upload_file.assert_not_called()
+
+
+def test_file_at_the_limit_is_accepted(client, box, monkeypatch):
+    monkeypatch.setenv("MAX_UPLOAD_BYTES", "1048576")
+    get_settings.cache_clear()
+
+    response = post_cdx_commit(client, file=("big.bin", b"x" * (1024 * 1024), "x/y"))
+
+    assert response.status_code == 201
+    assert response.json()["file_size"] == 1024 * 1024
+    assert response.json()["sha256_hash"] == hashlib.sha256(b"x" * (1024 * 1024)).hexdigest()
 
 
 def test_list_filters_by_subsystem_newest_first(client, box):

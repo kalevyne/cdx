@@ -6,6 +6,8 @@ anchoring fills in the `xrpl_*` fields afterwards.
 """
 
 from dataclasses import dataclass
+from io import BytesIO
+from typing import BinaryIO
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -14,12 +16,8 @@ from app.models import CdxCommit
 from app.schemas.auth import SessionUser
 from app.schemas.box import BoxFolderRef
 from app.services.box_client import BoxService
-from app.services.hashing import sha256_hex
+from app.services.hashing import sha256_hex_file
 from app.subsystems import DESIGN_REVIEWS_FOLDER, subsystem_for_folder_name
-
-# Box's limit for a single (non-chunked) upload. Larger files would need Box's
-# chunked upload API, which CDX doesn't use yet.
-MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 
 
 class CdxCommitNotFoundError(Exception):
@@ -36,8 +34,17 @@ class FileTooLargeError(InvalidCdxCommitError):
 
 @dataclass(frozen=True)
 class CommitFile:
+    """A file to commit: a seekable file object (an upload spooled to disk,
+    typically) and its size, so even multi-GB files are never read into
+    memory whole."""
+
     name: str
-    content: bytes
+    content: BinaryIO
+    size: int
+
+    @classmethod
+    def from_bytes(cls, name: str, content: bytes) -> "CommitFile":
+        return cls(name=name, content=BytesIO(content), size=len(content))
 
 
 def create_cdx_commit(
@@ -49,18 +56,24 @@ def create_cdx_commit(
     message: str,
     author: SessionUser,
     design_review: CommitFile | None = None,
+    max_upload_bytes: int,
 ) -> CdxCommit:
     message = message.strip()
     if not message:
         raise InvalidCdxCommitError("A commit message is required")
     for commit_file in (file, design_review):
         if commit_file:
-            _validate_file(commit_file)
+            _validate_file(commit_file, max_upload_bytes)
 
     folder = box.get_folder(folder_id)
     subsystem, subsystem_folder = _find_subsystem([*folder.path, folder])
 
-    uploaded = box.upload_file(folder_id, file.name, file.content)
+    # Hash before uploading: the hash is of the bytes CDX received, and reading
+    # the file once more from local disk is cheap next to the Box upload.
+    sha256_hash = sha256_hex_file(file.content)
+    review_sha256_hash = sha256_hex_file(design_review.content) if design_review else None
+
+    uploaded = box.upload_file(folder_id, file.name, file.content, file.size)
     review = None
     if design_review:
         # Design reviews live in the subsystem's "Design Reviews" folder when the
@@ -70,17 +83,19 @@ def create_cdx_commit(
             if subsystem_folder
             else folder_id
         )
-        review = box.upload_file(review_folder_id, design_review.name, design_review.content)
+        review = box.upload_file(
+            review_folder_id, design_review.name, design_review.content, design_review.size
+        )
 
     cdx_commit = CdxCommit(
         box_file_id=uploaded.id,
         box_file_version=uploaded.version_id,
         box_folder_id=folder_id,
         file_name=uploaded.name,
-        file_size=len(file.content),
-        sha256_hash=sha256_hex(file.content),
+        file_size=file.size,
+        sha256_hash=sha256_hash,
         design_review_box_file_id=review.id if review else None,
-        design_review_sha256_hash=sha256_hex(design_review.content) if design_review else None,
+        design_review_sha256_hash=review_sha256_hash,
         subsystem=subsystem,
         author_box_user_id=author.box_user_id,
         author_name=author.name,
@@ -108,14 +123,14 @@ def get_cdx_commit(db: Session, cdx_commit_id: int) -> CdxCommit:
     return cdx_commit
 
 
-def _validate_file(commit_file: CommitFile) -> None:
+def _validate_file(commit_file: CommitFile, max_upload_bytes: int) -> None:
     if not commit_file.name.strip():
         raise InvalidCdxCommitError("Uploaded files need a file name")
-    if not commit_file.content:
+    if commit_file.size == 0:
         raise InvalidCdxCommitError(f"{commit_file.name} is empty")
-    if len(commit_file.content) > MAX_UPLOAD_BYTES:
+    if commit_file.size > max_upload_bytes:
         raise FileTooLargeError(
-            f"{commit_file.name} is larger than {MAX_UPLOAD_BYTES // (1024 * 1024)} MB"
+            f"{commit_file.name} is larger than {max_upload_bytes // (1024 * 1024)} MB"
         )
 
 

@@ -67,10 +67,10 @@ def test_startup_sweep_anchors_pending_commits(client, box, fake_xrpl):
 @pytest.fixture
 def anchored_commit_id(client, box):
     cdx_commit_id = post_cdx_commit(client).json()["id"]
-    box.download_file.return_value = (
-        BoxFileMetadata(id="file-pack.step", name="pack.step", size=10),
-        b"pack-bytes",
+    box.get_file_metadata.return_value = BoxFileMetadata(
+        id="file-pack.step", name="pack.step", size=10
     )
+    box.open_file_content.side_effect = lambda file, version_id: iter([b"pack-", b"bytes"])
     return cdx_commit_id
 
 
@@ -79,11 +79,12 @@ def test_verification_matches_box_and_ledger(client, box, anchored_commit_id):
 
     assert result["verified"] is True
     assert (result["box"]["status"], result["ledger"]["status"]) == ("match", "match")
-    box.download_file.assert_called_once_with("file-pack.step", "v1")
+    box.get_file_metadata.assert_called_once_with("file-pack.step")
+    box.open_file_content.assert_called_once_with(box.get_file_metadata.return_value, "v1")
 
 
 def test_verification_detects_a_changed_file(client, box, anchored_commit_id):
-    box.download_file.return_value = (box.download_file.return_value[0], b"tampered")
+    box.open_file_content.side_effect = lambda file, version_id: iter([b"tampered"])
 
     result = client.get(f"/api/cdx-commits/{anchored_commit_id}/verification").json()
 
@@ -104,7 +105,7 @@ def test_verification_detects_a_different_ledger_memo(client, fake_xrpl, anchore
 def test_verification_before_anchoring_is_unavailable(client, box, fake_xrpl):
     fake_xrpl.is_configured = False
     cdx_commit_id = post_cdx_commit(client).json()["id"]
-    box.download_file.return_value = (None, b"pack-bytes")
+    box.open_file_content.side_effect = lambda file, version_id: iter([b"pack-bytes"])
 
     result = client.get(f"/api/cdx-commits/{cdx_commit_id}/verification").json()
 
@@ -120,6 +121,7 @@ def test_status_reports_whether_anchoring_is_enabled(client, fake_xrpl):
     assert client.get("/api/status").json() == {
         "anchoring_enabled": True,
         "xrpl_network": "testnet",
+        "max_upload_bytes": 2 * 1024**3,
     }
     fake_xrpl.is_configured = False
     assert client.get("/api/status").json()["anchoring_enabled"] is False

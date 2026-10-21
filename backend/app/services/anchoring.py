@@ -17,7 +17,7 @@ from app.models import AnchorStatus, CdxCommit
 from app.schemas.cdx_commit import CdxCommitVerification, CheckStatus, VerificationCheck
 from app.services.box_client import BoxNotFoundError, BoxService, BoxServiceError
 from app.services.cdx_commits import get_cdx_commit
-from app.services.hashing import sha256_hex
+from app.services.hashing import sha256_hex_chunks
 from app.services.xrpl_client import XrplClient, XrplError
 
 logger = logging.getLogger(__name__)
@@ -98,11 +98,13 @@ def verify_cdx_commit(
 
 
 def _check_box(box: BoxService, cdx_commit: CdxCommit) -> VerificationCheck:
+    # Streamed through the hash piece by piece: committed files can be gigabytes.
     try:
-        _, content = box.download_file(cdx_commit.box_file_id, cdx_commit.box_file_version)
+        file = box.get_file_metadata(cdx_commit.box_file_id)
+        observed = sha256_hex_chunks(box.open_file_content(file, cdx_commit.box_file_version))
     except (BoxNotFoundError, BoxServiceError) as exc:
         return VerificationCheck(status=CheckStatus.UNAVAILABLE, detail=str(exc))
-    return _compare(cdx_commit.sha256_hash, sha256_hex(content), source="Box's copy of the file")
+    return _compare(cdx_commit.sha256_hash, observed, source="Box's copy of the file")
 
 
 def _check_ledger(xrpl: XrplClient, cdx_commit: CdxCommit) -> VerificationCheck:
